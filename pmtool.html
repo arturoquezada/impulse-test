@@ -862,6 +862,59 @@ async function openProjectDetail(projectId){
       ${buildReqView(req,11,"Recursos Requeridos",["Personas necesarias","Herramientas requeridas","Presupuesto (si aplica)"])}
     </div>`;
 
+  /* ── CLOSURE REPORT ── */
+  let closureReportHtml = "";
+  if(project.status==="Completed" && project.closure_report){
+    const cr = typeof project.closure_report==="object" ? project.closure_report : JSON.parse(project.closure_report||"{}");
+    closureReportHtml = `
+      <div class="panel" style="border:2px solid var(--green);background:#f0fdf4;">
+        <div class="panel-title" style="color:var(--green);font-size:13px;">📊 Closure Report</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px;">SLA del Proyecto</div>
+            <div class="kv-grid">
+              <div class="kv"><span class="kv-l">Due Date</span><span class="kv-v">${esc(cr.due_date||"—")}</span></div>
+              <div class="kv"><span class="kv-l">Completed On</span><span class="kv-v">${esc(cr.completed_on||"—")}</span></div>
+              <div class="kv"><span class="kv-l">SLA Result</span>${badgeCompliance(cr.sla_result||"Open")}</div>
+              <div class="kv"><span class="kv-l">Days Diff</span><span class="kv-v" style="color:${cr.days_diff>0?"var(--red)":cr.days_diff<0?"var(--green)":"var(--accent)"}">${cr.days_diff>0?"+":""}${cr.days_diff||0} days</span></div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px;">Suggested Assignments</div>
+            <div class="kv-grid">
+              <div class="kv"><span class="kv-l">Submitted</span><span class="kv-v">${cr.suggested_total||0}</span></div>
+              <div class="kv"><span class="kv-l">Approved</span><span class="kv-v" style="color:var(--green)">${cr.suggested_approved||0}</span></div>
+              <div class="kv"><span class="kv-l">Rejected</span><span class="kv-v" style="color:var(--red)">${cr.suggested_rejected||0}</span></div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px;">Tasks Performance</div>
+            <div class="kv-grid">
+              <div class="kv"><span class="kv-l">Total Tasks</span><span class="kv-v">${cr.tasks_total||0}</span></div>
+              <div class="kv"><span class="kv-l">Completed</span><span class="kv-v" style="color:var(--green)">${cr.tasks_done||0}</span></div>
+              <div class="kv"><span class="kv-l">On Time</span><span class="kv-v" style="color:var(--green)">${cr.tasks_on_time||0}</span></div>
+              <div class="kv"><span class="kv-l">Late</span><span class="kv-v" style="color:var(--red)">${cr.tasks_late||0}</span></div>
+              <div class="kv"><span class="kv-l">Cancelled</span><span class="kv-v" style="color:var(--ink-3)">${cr.tasks_cancelled||0}</span></div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px;">Team</div>
+            <div class="kv-grid">
+              <div class="kv"><span class="kv-l">Owner</span><span class="kv-v">${esc(cr.owner_name||"—")}</span></div>
+            </div>
+            <div style="margin-top:8px;">
+              <div style="font-size:11px;color:var(--ink-3);font-weight:700;margin-bottom:5px;">Collaborators</div>
+              <div class="chips">${(cr.collaborators||[]).map(c=>`<span class="chip">${esc(c)}</span>`).join("")||"<span class='chip'>None</span>"}</div>
+            </div>
+          </div>
+        </div>
+        ${cr.pm_notes?`<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--green-bg);">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);margin-bottom:5px;">PM Notes</div>
+          <div style="font-size:13px;color:var(--ink-2);line-height:1.5;">${esc(cr.pm_notes)}</div>
+        </div>`:""}
+      </div>`;
+  }
+
   /* ── KANBAN ── */
   const kanbanStatuses=["To Do","In Progress","Blocked","Paused","Done","Cancelled"];
   const kanbanHtml=kanbanStatuses.map(s=>renderKanbanCol(s,regular,um)).join("");
@@ -903,6 +956,8 @@ async function openProjectDetail(projectId){
         </div>
       </div>
     </div>
+
+    ${closureReportHtml}
 
     ${reqHtml}
 
@@ -964,12 +1019,10 @@ async function openProjectDetail(projectId){
     close(); await renderPage(); await openProjectDetail(project.id);
   });
 
-  // Mark complete
+  // Mark complete — open closure report modal
   el.querySelector("#btnComplete")?.addEventListener("click",async()=>{
     if(!isPM) return;
-    if(!confirm(`Mark "${project.name}" as Completed?`)) return;
-    await supabase.from("pm_projects").update({status:"Completed",completed_at:new Date().toISOString()}).eq("id",project.id);
-    close(); await renderPage(); await openProjectDetail(project.id);
+    await openClosureModal(project, tasks, members, um, close);
   });
 
   // Edit due date (PM only)
@@ -1202,6 +1255,173 @@ function openAddLinkModal(projectId,closeParent){
   });
 }
 window.openAddLinkModal=openAddLinkModal;
+
+/* ═══════════════════════════════════
+   CLOSURE REPORT MODAL
+═══════════════════════════════════ */
+async function openClosureModal(project, tasks, members, um, closeParent){
+  if(!isPM) return;
+
+  const now = new Date();
+  const completedOn = now.toISOString().split("T")[0];
+  const due = project.due_date;
+
+  // SLA
+  let slaResult = "Open";
+  let daysDiff = 0;
+  if(due){
+    const dueDate = new Date(due + "T23:59:59");
+    daysDiff = Math.round((now - dueDate) / (1000*60*60*24));
+    if(daysDiff < 0) slaResult = "Before deadline";
+    else if(daysDiff === 0) slaResult = "On deadline";
+    else slaResult = "After deadline";
+  }
+
+  // All tasks including suggested
+  const allTasks = tasks;
+  const suggestedAll  = allTasks.filter(t => t.status === "Suggested");
+  const suggestedAppr = allTasks.filter(t => t.status !== "Suggested" && t.status !== "Cancelled");
+  const suggestedRej  = allTasks.filter(t => t.status === "Cancelled");
+
+  // We need to fetch ALL tasks including cancelled ones (already loaded)
+  const regularTasks  = allTasks.filter(t => t.status !== "Suggested");
+  const doneTasks     = regularTasks.filter(t => t.status === "Done");
+  const cancelledT    = regularTasks.filter(t => t.status === "Cancelled");
+
+  // On time = completed_at <= due_date
+  const onTime = doneTasks.filter(t => {
+    if(!t.completed_at || !t.due_date) return false;
+    return new Date(t.completed_at) <= new Date(t.due_date + "T23:59:59");
+  });
+  const late = doneTasks.filter(t => {
+    if(!t.completed_at || !t.due_date) return true;
+    return new Date(t.completed_at) > new Date(t.due_date + "T23:59:59");
+  });
+
+  // Team
+  const ownerName = um[project.owner_user_id]?.full_name || "Unassigned";
+  const collabNames = members
+    .filter(m => m.member_role_in_project !== "owner")
+    .map(m => um[m.user_id]?.full_name || "Unknown");
+
+  const slaColor = slaResult==="Before deadline"?"var(--green)":slaResult==="On deadline"?"var(--accent)":"var(--red)";
+
+  const body = `
+    <div class="panel" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0;margin-bottom:14px;">
+      <div style="font-size:15px;font-weight:900;color:var(--green);margin-bottom:4px;">📊 Project Closure Report</div>
+      <div style="font-size:12px;color:var(--ink-3);">${esc(project.name)} · Completing on ${esc(completedOn)}</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+      <div class="panel" style="margin-bottom:0;">
+        <div class="panel-title">SLA del Proyecto</div>
+        <div class="kv-grid">
+          <div class="kv"><span class="kv-l">Due Date</span><span class="kv-v">${esc(due||"—")}</span></div>
+          <div class="kv"><span class="kv-l">Completed On</span><span class="kv-v">${esc(completedOn)}</span></div>
+          <div class="kv"><span class="kv-l">SLA Result</span>${badgeCompliance(slaResult)}</div>
+          <div class="kv"><span class="kv-l">Difference</span><span class="kv-v" style="color:${slaColor}">${daysDiff>0?"+":""}${daysDiff} days</span></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:0;">
+        <div class="panel-title">Suggested Assignments</div>
+        <div class="kv-grid">
+          <div class="kv"><span class="kv-l">Total submitted</span><span class="kv-v">${allTasks.filter(t=>t.created_by_user_id!==currentUser.id||true).length}</span></div>
+          <div class="kv"><span class="kv-l">Approved</span><span class="kv-v" style="color:var(--green)">${suggestedAppr.length}</span></div>
+          <div class="kv"><span class="kv-l">Rejected</span><span class="kv-v" style="color:var(--red)">${suggestedRej.length}</span></div>
+          <div class="kv"><span class="kv-l">Pending</span><span class="kv-v" style="color:var(--purple)">${suggestedAll.length}</span></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:0;">
+        <div class="panel-title">Tasks Performance</div>
+        <div class="kv-grid">
+          <div class="kv"><span class="kv-l">Total tasks</span><span class="kv-v">${regularTasks.length}</span></div>
+          <div class="kv"><span class="kv-l">Done</span><span class="kv-v" style="color:var(--green)">${doneTasks.length}</span></div>
+          <div class="kv"><span class="kv-l">On time</span><span class="kv-v" style="color:var(--green)">${onTime.length}</span></div>
+          <div class="kv"><span class="kv-l">Late</span><span class="kv-v" style="color:var(--red)">${late.length}</span></div>
+          <div class="kv"><span class="kv-l">Cancelled</span><span class="kv-v" style="color:var(--ink-3)">${cancelledT.length}</span></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:0;">
+        <div class="panel-title">Team</div>
+        <div class="kv-grid">
+          <div class="kv"><span class="kv-l">Owner</span><span class="kv-v">${esc(ownerName)}</span></div>
+        </div>
+        <div style="margin-top:8px;">
+          <div style="font-size:11px;color:var(--ink-3);font-weight:700;margin-bottom:5px;">Collaborators</div>
+          <div class="chips">${collabNames.map(c=>`<span class="chip">${esc(c)}</span>`).join("")||"<span class='chip'>None</span>"}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">PM Notes (optional)</div>
+      <textarea id="closureNotes" class="fi2" rows="3" placeholder="Add any notes about the project outcome, lessons learned, etc."></textarea>
+    </div>
+  `;
+
+  const footer = `
+    <button class="btn btn-ghost" data-close>Cancel</button>
+    <button class="btn btn-success" id="btnConfirmComplete">✓ Confirm & Complete Project</button>
+  `;
+
+  const {el, close} = openModal(mShell("Complete Project", "Review the closure report before confirming", body, footer));
+
+  el.querySelector("#btnConfirmComplete").addEventListener("click", async () => {
+    const btn = el.querySelector("#btnConfirmComplete");
+    btn.disabled = true; btn.textContent = "Completing…";
+
+    const notes = document.getElementById("closureNotes")?.value?.trim() || "";
+
+    // Fetch all tasks including suggested with proper counts
+    const { data: allTasksFull } = await supabase.from("pm_tasks")
+      .select("*").eq("project_id", project.id).eq("is_deleted", false);
+
+    const atf = allTasksFull || [];
+    const sugTotal    = atf.length;
+    const sugApproved = atf.filter(t => t.status !== "Suggested" && t.status !== "Cancelled").length;
+    const sugRejected = atf.filter(t => t.status === "Cancelled").length;
+    const regTasks    = atf.filter(t => t.status !== "Suggested");
+    const doneT       = regTasks.filter(t => t.status === "Done");
+    const cancelT     = regTasks.filter(t => t.status === "Cancelled");
+    const onTimeT     = doneT.filter(t => t.completed_at && t.due_date && new Date(t.completed_at) <= new Date(t.due_date + "T23:59:59"));
+    const lateT       = doneT.filter(t => !t.completed_at || !t.due_date || new Date(t.completed_at) > new Date(t.due_date + "T23:59:59"));
+
+    const closure_report = {
+      due_date: due,
+      completed_on: completedOn,
+      sla_result: slaResult,
+      days_diff: daysDiff,
+      suggested_total: sugTotal,
+      suggested_approved: sugApproved,
+      suggested_rejected: sugRejected,
+      tasks_total: regTasks.length,
+      tasks_done: doneT.length,
+      tasks_on_time: onTimeT.length,
+      tasks_late: lateT.length,
+      tasks_cancelled: cancelT.length,
+      owner_name: ownerName,
+      collaborators: collabNames,
+      pm_notes: notes,
+      closed_by: currentUser.nombre,
+      closed_at: now.toISOString()
+    };
+
+    const { error } = await supabase.from("pm_projects").update({
+      status: "Completed",
+      completed_at: now.toISOString(),
+      closure_report
+    }).eq("id", project.id);
+
+    if(error){ alert(error.message); btn.disabled=false; btn.textContent="✓ Confirm & Complete Project"; return; }
+
+    close();
+    closeParent?.();
+    await renderPage();
+    await openProjectDetail(project.id);
+  });
+}
+window.openClosureModal = openClosureModal;
+
 </script>
 </body>
 </html>
