@@ -359,12 +359,12 @@ async function doLogin() {
 async function initApp() {
   const { data:{ user } } = await supabase.auth.getUser();
   if (!user) return;
-  const { data: emp } = await supabase.from("empleados")
-    .select("id,nombre,nombre_completo,correo_corporativo")
-    .eq("correo_corporativo", user.email).maybeSingle();
+  const { data: emp } = await supabase.from("employees")
+    .select("id,full_name,email")
+    .eq("email", user.email).maybeSingle();
   if (!emp) { document.getElementById("loginErr").textContent="User not found."; return; }
 
-  currentUser = { id: emp.id, nombre: emp.nombre_completo||emp.nombre||user.email, correo: user.email };
+  currentUser = { id: emp.id, nombre: emp.full_name||user.email, correo: user.email };
   isPM = PM_IDS.includes(emp.id);
 
   document.getElementById("loginView").style.display  = "none";
@@ -440,8 +440,8 @@ function computeProgress(tasks){
 function dotColor(s){ const m={"To Do":"#94a3b8","In Progress":"#3b82f6","Blocked":"#ef4444","Paused":"#f59e0b","Done":"#10b981","Cancelled":"#64748b","Suggested":"#7c3aed"}; return m[s]||"#94a3b8"; }
 
 async function fetchUsers(){
-  const { data }=await supabase.from("empleados").select("id,nombre_completo,correo_corporativo,departamento").eq("estado_empleado","Activo").order("nombre_completo",{ascending:true});
-  return (data||[]).map(u=>({id:u.id,email:String(u.correo_corporativo||"").trim().toLowerCase(),full_name:u.nombre_completo||u.correo_corporativo||"?",area:u.departamento||""}));
+  const { data }=await supabase.from("employees").select("id,full_name,email,position_title").eq("campaign_id","admin").eq("status","active").order("full_name",{ascending:true});
+  return (data||[]).map(u=>({id:u.id,email:String(u.email||"").trim().toLowerCase(),full_name:u.full_name||u.email||"?",area:u.position_title||""}));
 }
 
 function uMap(users){ const m={}; (users||[]).forEach(u=>{m[u.id]=u;}); return m; }
