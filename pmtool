@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PM Tool · EvolveCX</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;}
+:root{
+  --bg:#f0f2f5;--surface:#fff;--border:#e2e8f0;--border-soft:#f1f5f9;
+  --ink:#0f172a;--ink-2:#334155;--ink-3:#64748b;--ink-4:#94a3b8;
+  --accent:#1a56db;--accent-bg:#eff6ff;--accent-border:#bfdbfe;
+  --green:#16a34a;--green-bg:#dcfce7;
+  --red:#dc2626;--red-bg:#fee2e2;
+  --amber:#b45309;--amber-bg:#fef3c7;
+  --purple:#7c3aed;--purple-bg:#ede9fe;
+  --orange:#ea580c;--orange-bg:#fff7ed;
+  --sidebar-bg:#0f172a;--sidebar-w:240px;--header-h:58px;
+  --radius:14px;--shadow:0 4px 20px rgba(15,23,42,.08);--shadow-lg:0 20px 60px rgba(15,23,42,.2);
+}
+body{margin:0;font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;}
+
+/* LOGIN */
+#loginView{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f172a,#1e3a5f);}
+.login-box{background:#fff;border-radius:20px;padding:40px 36px;width:380px;max-width:92vw;box-shadow:0 30px 80px rgba(0,0,0,.4);}
+.login-logo{text-align:center;margin-bottom:28px;}
+.login-logo .brand{font-size:26px;font-weight:900;color:var(--ink);}
+.login-logo .sub{font-size:11px;color:var(--ink-3);margin-top:4px;font-weight:600;letter-spacing:1px;text-transform:uppercase;}
+.lf{margin-bottom:12px;}
+.lf label{display:block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-3);margin-bottom:5px;}
+.lf input{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;transition:border-color .15s;background:var(--bg);}
+.lf input:focus{outline:none;border-color:var(--accent);background:#fff;}
+.login-btn{width:100%;padding:13px;background:var(--ink);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-top:6px;}
+.login-btn:hover{background:#1e293b;}
+.login-btn:disabled{opacity:.6;cursor:default;}
+.login-err{color:var(--red);font-size:13px;text-align:center;margin-top:10px;}
+
+/* APP */
+#appView{display:none;min-height:100vh;}
+.layout{display:flex;min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar-w);background:var(--sidebar-bg);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;}
+.sb-logo{padding:22px 20px 16px;border-bottom:1px solid rgba(255,255,255,.07);}
+.sb-logo .brand{font-size:18px;font-weight:900;color:#fff;}
+.sb-logo .sub{font-size:11px;color:rgba(255,255,255,.35);margin-top:2px;}
+.sb-user{padding:12px 20px;border-bottom:1px solid rgba(255,255,255,.07);}
+.sb-user .name{font-size:13px;font-weight:700;color:#fff;}
+.sb-user .role{font-size:11px;color:rgba(255,255,255,.4);margin-top:2px;}
+.sb-nav{flex:1;padding:10px;}
+.nav-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.28);padding:10px 10px 5px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;color:rgba(255,255,255,.6);font-size:13px;font-weight:600;cursor:pointer;transition:all .12s;margin-bottom:2px;user-select:none;}
+.nav-item:hover{background:rgba(255,255,255,.08);color:#fff;}
+.nav-item.active{background:rgba(255,255,255,.13);color:#fff;}
+.nav-item .icon{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
+.nav-badge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:99px;min-width:18px;text-align:center;}
+.sb-footer{padding:14px 10px;border-top:1px solid rgba(255,255,255,.07);}
+.logout-btn{display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;border-radius:9px;background:none;border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.5);font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .12s;}
+.logout-btn:hover{background:rgba(255,255,255,.07);color:#fff;}
+
+/* MAIN */
+.main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh;}
+.topbar{height:var(--header-h);background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:50;}
+.topbar-title{font-size:15px;font-weight:800;}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.page{padding:24px;}
+
+/* TABS */
+.tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:2px solid var(--border);padding-bottom:0;}
+.tab{padding:9px 18px;border-radius:9px 9px 0 0;border:none;background:none;font-family:inherit;font-size:13px;font-weight:700;color:var(--ink-3);cursor:pointer;transition:all .12s;position:relative;bottom:-2px;}
+.tab:hover{background:var(--bg);color:var(--ink-2);}
+.tab.active{background:#fff;color:var(--accent);border:2px solid var(--border);border-bottom:2px solid #fff;}
+.tab .cnt{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:99px;font-size:10px;font-weight:800;background:var(--red);color:#fff;margin-left:6px;vertical-align:middle;}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px;}
+.kpi-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:18px;}
+.kpi-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-3);}
+.kpi-value{font-size:30px;font-weight:900;color:var(--ink);margin-top:6px;line-height:1;}
+
+/* FILTERS */
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;align-items:flex-end;}
+.fg{display:flex;flex-direction:column;gap:4px;}
+.fg label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--ink-3);}
+.fi{padding:8px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink);min-width:160px;transition:border-color .15s;}
+.fi:focus{outline:none;border-color:var(--accent);}
+
+/* PROJECT CARDS */
+.projects-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
+.pcard{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:18px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden;}
+.pcard:hover{border-color:#93c5fd;box-shadow:0 8px 24px rgba(15,23,42,.1);transform:translateY(-1px);}
+.pcard::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.pcard.s-requested::before{background:var(--orange);}
+.pcard.s-draft::before{background:var(--ink-4);}
+.pcard.s-inprogress::before{background:var(--accent);}
+.pcard.s-onhold::before{background:var(--amber);}
+.pcard.s-completed::before{background:var(--green);}
+.pcard.s-cancelled::before{background:var(--red);}
+.pcard.s-underreview::before{background:var(--purple);}
+.pcard-area{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-3);margin-bottom:5px;}
+.pcard-name{font-size:17px;font-weight:800;color:var(--ink);line-height:1.2;margin-bottom:8px;}
+.pcard-obj{font-size:12px;color:var(--ink-3);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:12px;}
+.pcard-meta{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;}
+.pcard-row{display:flex;justify-content:space-between;font-size:12px;}
+.pcard-row .lbl{color:var(--ink-3);}
+.pcard-row .val{font-weight:700;color:var(--ink-2);}
+.pcard-footer{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.progress-bg{height:6px;background:var(--bg);border-radius:99px;overflow:hidden;margin-bottom:4px;}
+.progress-fill{height:100%;background:var(--accent);border-radius:99px;transition:width .3s;}
+.progress-lbl{font-size:11px;font-weight:700;color:var(--ink-3);margin-bottom:10px;}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:800;}
+.b-requested{background:var(--orange-bg);color:var(--orange);}
+.b-draft{background:#f1f5f9;color:#64748b;}
+.b-inprogress{background:var(--accent-bg);color:var(--accent);}
+.b-onhold{background:var(--amber-bg);color:var(--amber);}
+.b-completed{background:var(--green-bg);color:var(--green);}
+.b-cancelled{background:var(--red-bg);color:var(--red);}
+.b-underreview{background:var(--purple-bg);color:var(--purple);}
+.b-suggested{background:var(--purple-bg);color:var(--purple);border:1px solid #e9d5ff;}
+.b-todo{background:#f1f5f9;color:#64748b;}
+.b-done{background:var(--green-bg);color:var(--green);}
+.b-blocked{background:var(--red-bg);color:var(--red);}
+.b-paused{background:var(--amber-bg);color:var(--amber);}
+.b-c-open{background:#f1f5f9;color:#64748b;}
+.b-c-before{background:var(--green-bg);color:var(--green);}
+.b-c-on{background:var(--accent-bg);color:var(--accent);}
+.b-c-after{background:var(--red-bg);color:var(--red);}
+.b-c-overdue{background:var(--red-bg);color:var(--red);}
+.b-low{background:var(--green-bg);color:var(--green);}
+.b-medium{background:var(--amber-bg);color:var(--amber);}
+.b-high{background:var(--red-bg);color:var(--red);}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:9px;border:1.5px solid transparent;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .12s;text-decoration:none;white-space:nowrap;}
+.btn-primary{background:var(--ink);color:#fff;border-color:var(--ink);}
+.btn-primary:hover{background:#1e293b;}
+.btn-ghost{background:#fff;color:var(--ink-2);border-color:var(--border);}
+.btn-ghost:hover{background:var(--bg);border-color:#94a3b8;}
+.btn-success{background:var(--green);color:#fff;border-color:var(--green);}
+.btn-success:hover{background:#15803d;}
+.btn-danger{background:var(--red);color:#fff;border-color:var(--red);}
+.btn-danger:hover{background:#b91c1c;}
+.btn-accent{background:var(--accent);color:#fff;border-color:var(--accent);}
+.btn-accent:hover{background:#1d4ed8;}
+.btn-orange{background:var(--orange);color:#fff;border-color:var(--orange);}
+.btn-orange:hover{background:#c2410c;}
+.btn-purple{background:var(--purple);color:#fff;border-color:var(--purple);}
+.btn-purple:hover{background:#6d28d9;}
+.btn-sm{padding:6px 11px;font-size:12px;border-radius:7px;}
+.btn:disabled{opacity:.5;cursor:default;pointer-events:none;}
+
+/* MODAL */
+.modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(4px);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal{background:#fff;border-radius:18px;width:min(980px,100%);max-height:min(90vh,960px);overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shadow-lg);animation:modalIn .18s ease-out;}
+.modal-sm{width:min(520px,100%);}
+.modal-md{width:min(700px,100%);}
+@keyframes modalIn{from{transform:scale(.97) translateY(8px);opacity:0;}to{transform:scale(1) translateY(0);opacity:1;}}
+.modal-header{padding:18px 20px;display:flex;justify-content:space-between;align-items:flex-start;background:linear-gradient(180deg,#0f172a,#1e293b);color:#fff;flex-shrink:0;}
+.mh-title{font-size:16px;font-weight:900;}
+.mh-sub{font-size:12px;color:rgba(255,255,255,.55);margin-top:3px;}
+.modal-close{background:rgba(255,255,255,.12);border:none;color:#fff;width:30px;height:30px;border-radius:99px;cursor:pointer;font-size:14px;display:grid;place-items:center;flex-shrink:0;transition:background .12s;}
+.modal-close:hover{background:rgba(255,255,255,.22);}
+.modal-body{flex:1;overflow-y:auto;padding:18px 20px;background:#f8fafc;}
+.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;flex-shrink:0;background:#fff;}
+
+/* PANEL */
+.panel{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px;}
+.panel:last-child{margin-bottom:0;}
+.panel-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-3);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
+
+/* FORM */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-grid-1{grid-template-columns:1fr;}
+@media(max-width:520px){.form-grid{grid-template-columns:1fr;}}
+.fg2{display:flex;flex-direction:column;gap:5px;}
+.fg2.full{grid-column:1/-1;}
+.fg2 label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--ink-3);}
+.fi2{padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;font-family:inherit;color:var(--ink);background:var(--bg);transition:border-color .15s,background .15s;width:100%;}
+.fi2:focus{outline:none;border-color:var(--accent);background:#fff;}
+.fi2[readonly]{background:#f1f5f9;color:var(--ink-3);cursor:default;}
+textarea.fi2{resize:vertical;min-height:80px;}
+
+/* KV */
+.kv-grid{display:grid;gap:7px;}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--bg);border-radius:9px;gap:12px;font-size:13px;}
+.kv-l{color:var(--ink-3);font-weight:700;font-size:12px;flex-shrink:0;}
+.kv-v{font-weight:800;color:var(--ink);text-align:right;}
+
+/* KANBAN */
+.kanban-wrap{display:flex;gap:14px;overflow-x:auto;padding-bottom:8px;}
+.kanban-wrap::-webkit-scrollbar{height:5px;}
+.kanban-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
+.kanban-col{min-width:250px;max-width:250px;border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;display:flex;flex-direction:column;}
+.kanban-col-hdr{padding:11px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:#fff;}
+.kanban-col-title{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:800;color:var(--ink);}
+.k-dot{width:9px;height:9px;border-radius:99px;flex-shrink:0;}
+.k-cnt{font-size:11px;font-weight:800;padding:2px 8px;border-radius:99px;background:var(--bg);color:var(--ink-3);border:1px solid var(--border);}
+.kanban-col-body{padding:10px;display:flex;flex-direction:column;gap:8px;flex:1;min-height:60px;}
+.k-card{background:#fff;border:1px solid var(--border);border-radius:11px;padding:12px;}
+.k-card-name{font-size:13px;font-weight:800;color:var(--ink);margin-bottom:8px;line-height:1.3;}
+.k-card-meta{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--ink-3);}
+.k-card-foot{margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+
+/* SUGGESTED */
+.suggested-section{border:2px dashed #e9d5ff;background:#faf5ff;border-radius:var(--radius);padding:14px;margin-bottom:14px;}
+.sug-item{background:#fff;border:1px solid #e9d5ff;border-radius:11px;padding:12px;margin-bottom:8px;}
+.sug-item:last-child{margin-bottom:0;}
+.sug-item-name{font-size:13px;font-weight:800;color:var(--ink);margin-bottom:5px;}
+.sug-item-meta{font-size:12px;color:var(--ink-3);margin-bottom:8px;display:flex;flex-direction:column;gap:2px;}
+.sug-actions{display:flex;gap:6px;}
+
+/* REQUIREMENTS FORM */
+.req-section{background:#fffbeb;border:1px solid #fde68a;border-radius:var(--radius);padding:16px;margin-bottom:14px;}
+.req-section-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:#92400e;margin-bottom:14px;display:flex;align-items:center;gap:6px;}
+.req-block{background:#fff;border:1px solid #fde68a;border-radius:10px;padding:12px;margin-bottom:10px;}
+.req-block:last-child{margin-bottom:0;}
+.req-block-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:#b45309;margin-bottom:10px;}
+
+/* ALERTS / BANNERS */
+.banner{border-radius:12px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px;}
+.banner-green{background:linear-gradient(135deg,#14532d,#166534);color:#fff;}
+.banner-blue{background:linear-gradient(135deg,#1d4ed8,#1e40af);color:#fff;}
+.banner-orange{background:linear-gradient(135deg,#c2410c,#ea580c);color:#fff;}
+.banner-red{background:linear-gradient(135deg,#991b1b,#dc2626);color:#fff;}
+.banner-purple{background:linear-gradient(135deg,#5b21b6,#7c3aed);color:#fff;}
+.banner-text{font-size:14px;font-weight:700;}
+.banner-sub{font-size:12px;opacity:.75;margin-top:2px;}
+
+/* ROW */
+.row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px dashed var(--border);font-size:13px;}
+.row:last-child{border-bottom:none;}
+.row-left{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.row-main{font-weight:700;color:var(--ink);}
+.row-sub{font-size:12px;color:var(--ink-3);}
+
+/* COLLAB PICKER */
+.collab-picker{display:grid;gap:6px;max-height:200px;overflow-y:auto;}
+.collab-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1.5px solid var(--border);border-radius:9px;cursor:pointer;transition:border-color .12s;}
+.collab-item:hover{border-color:var(--accent-border);}
+.collab-item input[type="checkbox"]{accent-color:var(--accent);}
+.collab-name{font-size:13px;font-weight:700;color:var(--ink);}
+.collab-area{font-size:11px;color:var(--ink-3);}
+
+/* CHIPS */
+.chips{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;background:var(--bg);border:1px solid var(--border);color:var(--ink-2);}
+
+/* EMPTY */
+.empty{padding:24px;text-align:center;color:var(--ink-3);font-size:13px;}
+.empty-icon{font-size:28px;margin-bottom:8px;}
+.empty-title{font-weight:800;color:var(--ink-2);margin-bottom:4px;}
+
+/* REJECTION HISTORY */
+.rejection-item{background:var(--red-bg);border:1px solid #fecaca;border-radius:10px;padding:12px;margin-bottom:8px;font-size:12px;}
+.rejection-item .date{color:var(--red);font-weight:800;margin-bottom:4px;}
+.rejection-item .note{color:#7f1d1d;line-height:1.4;}
+
+/* REVIEW COUNT */
+.review-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:800;}
+.review-pill.r1{background:#fff7ed;color:var(--orange);border:1px solid #fed7aa;}
+.review-pill.r2{background:var(--amber-bg);color:var(--amber);border:1px solid #fde68a;}
+.review-pill.r3{background:var(--red-bg);color:var(--red);border:1px solid #fecaca;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginView">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="brand">📋 PM Tool</div>
+      <div class="sub">EvolveCX · Project Management</div>
+    </div>
+    <div class="lf"><label>Corporate Email</label><input type="email" id="loginEmail" placeholder="you@evolvecx.com" autocomplete="email"></div>
+    <div class="lf"><label>Password</label><input type="password" id="loginPassword" autocomplete="current-password"></div>
+    <button class="login-btn" id="loginBtn">Sign in</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appView">
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sb-logo"><div class="brand">📋 PM Tool</div><div class="sub">EvolveCX</div></div>
+      <div class="sb-user" id="sbUser"></div>
+      <nav class="sb-nav">
+        <div class="nav-lbl">Navigation</div>
+        <div class="nav-item active" id="navAll" onclick="setTab('all')">
+          <span class="icon">🗂️</span> All Projects
+          <span class="nav-badge" id="badgePending" style="display:none"></span>
+        </div>
+        <div class="nav-item" id="navMine" onclick="setTab('mine')">
+          <span class="icon">👤</span> My Projects
+        </div>
+        <div class="nav-item" id="navReview" onclick="setTab('review')" id="navReview">
+          <span class="icon">🔍</span> Under Review
+          <span class="nav-badge" id="badgeReview" style="display:none"></span>
+        </div>
+      </nav>
+      <div class="sb-footer">
+        <button class="logout-btn" id="logoutBtn">↩ Sign out</button>
+      </div>
+    </aside>
+
+    <div class="main">
+      <div class="topbar">
+        <div class="topbar-title" id="topbarTitle">Projects</div>
+        <div class="topbar-right" id="topbarRight"></div>
+      </div>
+      <div class="page" id="pageContent"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js";
+
+/* ── CONFIG ── */
+const SUPABASE_URL  = "https://kpuqabxmpavxgbzxzlng.supabase.co";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwdXFhYnhtcGF2eGdienh6bG5nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2OTk1NzAsImV4cCI6MjA4MDI3NTU3MH0.CoB4NA6Z8qtTrRzvIqfP-hm3T1m24WpRNI1Xc74all8";
+const PM_IDS        = ["CX00008","CX00009","CX00125"];
+const PM_TYPES      = ["QA Tool - Supabase","Reclutamiento por campañas"];
+const PM_PRIORITIES = ["Low","Medium","High"];
+const PM_PROJ_STATUSES = ["Requested","Under Review","Draft","In Progress","On Hold","Completed","Cancelled"];
+const PM_TASK_STATUSES = ["Suggested","To Do","In Progress","Blocked","Paused","Done","Cancelled"];
+const MAX_REVIEWS   = 3;
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
+window.supabase = supabase;
+
+/* ── STATE ── */
+let currentUser = null;
+let isPM        = false;
+let activeTab   = "all";
+
+/* ═══════════════════════════════════
+   AUTH
+═══════════════════════════════════ */
+document.getElementById("loginBtn").addEventListener("click", doLogin);
+document.getElementById("loginPassword").addEventListener("keydown", e => { if(e.key==="Enter") doLogin(); });
+document.getElementById("logoutBtn").addEventListener("click", async () => { await supabase.auth.signOut(); location.reload(); });
+
+async function doLogin() {
+  const email = document.getElementById("loginEmail").value.trim();
+  const pass  = document.getElementById("loginPassword").value;
+  const btn   = document.getElementById("loginBtn");
+  const err   = document.getElementById("loginErr");
+  err.textContent=""; btn.disabled=true; btn.textContent="Signing in…";
+  const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+  if (error) { err.textContent=error.message; btn.disabled=false; btn.textContent="Sign in"; return; }
+  await initApp();
+}
+
+async function initApp() {
+  const { data:{ user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const { data: emp } = await supabase.from("empleados")
+    .select("id,nombre,nombre_completo,correo_corporativo")
+    .eq("correo_corporativo", user.email).maybeSingle();
+  if (!emp) { document.getElementById("loginErr").textContent="User not found."; return; }
+
+  currentUser = { id: emp.id, nombre: emp.nombre_completo||emp.nombre||user.email, correo: user.email };
+  isPM = PM_IDS.includes(emp.id);
+
+  document.getElementById("loginView").style.display  = "none";
+  document.getElementById("appView").style.display    = "block";
+  document.getElementById("sbUser").innerHTML = `<div class="name">${esc(currentUser.nombre)}</div><div class="role">${isPM?"🔑 PM Access":"Member"}</div>`;
+
+  // show review tab only to PM
+  if (!isPM) document.getElementById("navReview").style.display = "none";
+
+  await renderPage();
+}
+
+(async () => {
+  const { data:{ user } } = await supabase.auth.getUser();
+  if (user) await initApp();
+})();
+
+/* ═══════════════════════════════════
+   HELPERS
+═══════════════════════════════════ */
+function esc(v){ return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;"); }
+function fmtNum(n,d=0){ const x=Number(n||0); return Number.isFinite(x)?x.toFixed(d):"0"; }
+function isPast(d){ if(!d) return false; const t=new Date(); t.setHours(0,0,0,0); return new Date(d+"T00:00:00")<t; }
+
+function projStatusClass(s){
+  const m={"Requested":"requested","Under Review":"underreview","Draft":"draft","In Progress":"inprogress","On Hold":"onhold","Completed":"completed","Cancelled":"cancelled"};
+  return m[s]||"draft";
+}
+
+function badgeStatus(s){
+  const m={"Requested":"b-requested","Under Review":"b-underreview","Draft":"b-draft","In Progress":"b-inprogress","On Hold":"b-onhold","Completed":"b-completed","Cancelled":"b-cancelled","Suggested":"b-suggested","To Do":"b-todo","Done":"b-done","Blocked":"b-blocked","Paused":"b-paused"};
+  return `<span class="badge ${m[s]||"b-draft"}">${esc(s)}</span>`;
+}
+
+function badgePriority(p){
+  const m={"Low":"b-low","Medium":"b-medium","High":"b-high"};
+  return `<span class="badge ${m[p]||"b-medium"}">${esc(p)}</span>`;
+}
+
+function badgeCompliance(l){
+  const m={"Open":"b-c-open","Before deadline":"b-c-before","On deadline":"b-c-on","After deadline":"b-c-after","Overdue":"b-c-overdue"};
+  return `<span class="badge ${m[l]||"b-c-open"}">${esc(l)}</span>`;
+}
+
+function projCompliance(p){
+  if(!p?.completed_at||!p?.due_date) return "Open";
+  const c=new Date(p.completed_at), d=new Date(p.due_date+"T23:59:59");
+  if(c<d) return "Before deadline";
+  if(c.toDateString()===d.toDateString()) return "On deadline";
+  return "After deadline";
+}
+
+function taskCompliance(t){
+  if(!t?.completed_at||!t?.due_date){
+    if(t?.status!=="Done"&&t?.status!=="Suggested"&&isPast(t?.due_date)) return "Overdue";
+    return "Open";
+  }
+  const c=new Date(t.completed_at), d=new Date(t.due_date+"T23:59:59");
+  if(c<d) return "Before deadline";
+  if(c.toDateString()===d.toDateString()) return "On deadline";
+  return "After deadline";
+}
+
+function computeProgress(tasks){
+  const clean=(tasks||[]).filter(t=>!t.is_deleted&&t.status!=="Suggested");
+  if(!clean.length) return {done:0,total:0,pct:0};
+  const tw=clean.reduce((s,t)=>s+Number(t.weight_percent||0),0);
+  if(!tw){ const d=clean.filter(t=>t.status==="Done").length; return {done:d,total:clean.length,pct:clean.length?(d/clean.length)*100:0}; }
+  const dw=clean.filter(t=>t.status==="Done").reduce((s,t)=>s+Number(t.weight_percent||0),0);
+  return {done:dw,total:tw,pct:tw?(dw/tw)*100:0};
+}
+
+function dotColor(s){ const m={"To Do":"#94a3b8","In Progress":"#3b82f6","Blocked":"#ef4444","Paused":"#f59e0b","Done":"#10b981","Cancelled":"#64748b","Suggested":"#7c3aed"}; return m[s]||"#94a3b8"; }
+
+async function fetchUsers(){
+  const { data }=await supabase.from("empleados").select("id,nombre_completo,correo_corporativo,departamento").eq("estado_empleado","Activo").order("nombre_completo",{ascending:true});
+  return (data||[]).map(u=>({id:u.id,email:String(u.correo_corporativo||"").trim().toLowerCase(),full_name:u.nombre_completo||u.correo_corporativo||"?",area:u.departamento||""}));
+}
+
+function uMap(users){ const m={}; (users||[]).forEach(u=>{m[u.id]=u;}); return m; }
+
+function renderUserOpts(users,selId=""){
+  return `<option value="">Select…</option>`+(users||[]).map(u=>`<option value="${esc(u.id)}"${u.id===selId?" selected":""}>${esc(u.full_name)} · ${esc(u.area||"—")}</option>`).join("");
+}
+
+function renderCollabPicker(users,selIds=[],name="pm_collabs"){
+  const sel=new Set((selIds||[]).map(String));
+  return `<div class="collab-picker">${(users||[]).map(u=>`
+    <label class="collab-item">
+      <input type="checkbox" name="${esc(name)}" value="${esc(u.id)}"${sel.has(String(u.id))?" checked":""}>
+      <div><div class="collab-name">${esc(u.full_name)}</div><div class="collab-area">${esc(u.area||"—")}</div></div>
+    </label>`).join("")}</div>`;
+}
+
+function getChecked(name){ return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(el=>el.value); }
+
+/* ═══════════════════════════════════
+   MODAL SYSTEM
+═══════════════════════════════════ */
+function openModal(html, size=""){
+  const back=document.createElement("div");
+  back.className="modal-backdrop";
+  back.innerHTML=`<div class="modal${size?" "+size:""}">${html}</div>`;
+  document.body.appendChild(back);
+  const close=()=>back.remove();
+  back.addEventListener("click",e=>{ if(e.target===back||e.target.hasAttribute("data-close")) close(); });
+  return {el:back,close};
+}
+
+function mShell(title,sub,body,footer,size=""){
+  return `
+    <div class="modal-header">
+      <div><div class="mh-title">${esc(title)}</div>${sub?`<div class="mh-sub">${esc(sub)}</div>`:""}</div>
+      <button class="modal-close" data-close>✕</button>
+    </div>
+    <div class="modal-body">${body}</div>
+    ${footer?`<div class="modal-footer">${footer}</div>`:""}`;
+}
+
+/* ═══════════════════════════════════
+   PAGE RENDER
+═══════════════════════════════════ */
+async function renderPage(){
+  document.getElementById("pageContent").innerHTML=`<div class="empty"><div>Loading…</div></div>`;
+
+  // Update badges
+  const { data: pendingReview } = await supabase.from("pm_projects")
+    .select("id").eq("status","Requested").eq("is_deleted",false);
+  const { data: pendingSuggested } = await supabase.from("pm_tasks")
+    .select("id").eq("status","Suggested").eq("is_deleted",false);
+
+  const reviewCnt   = pendingReview?.length||0;
+  const suggestedCnt= pendingSuggested?.length||0;
+  const totalPending= reviewCnt+suggestedCnt;
+
+  const bp=document.getElementById("badgePending");
+  const br=document.getElementById("badgeReview");
+  if(isPM && totalPending>0){ bp.textContent=totalPending; bp.style.display=""; } else bp.style.display="none";
+  if(isPM && reviewCnt>0){ br.textContent=reviewCnt; br.style.display=""; } else br.style.display="none";
+
+  // Nav active state
+  ["navAll","navMine","navReview"].forEach(id=>document.getElementById(id)?.classList.remove("active"));
+  const navMap={all:"navAll",mine:"navMine",review:"navReview"};
+  document.getElementById(navMap[activeTab])?.classList.add("active");
+
+  const page=document.getElementById("pageContent");
+
+  const titleMap={all:"All Projects",mine:"My Projects",review:"Under Review"};
+  document.getElementById("topbarTitle").textContent=titleMap[activeTab]||"Projects";
+
+  page.innerHTML=`
+    <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="filters">
+      <div class="fg"><label>Search</label><input class="fi" id="fSearch" placeholder="Name or objective…" style="min-width:200px;"></div>
+      <div class="fg"><label>Type</label>
+        <select class="fi" id="fType">
+          <option value="">All types</option>
+          ${PM_TYPES.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("")}
+        </select>
+      </div>
+      <div class="fg"><label>Status</label>
+        <select class="fi" id="fStatus">
+          <option value="">All statuses</option>
+          ${PM_PROJ_STATUSES.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join("")}
+        </select>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:flex-end;">
+        <button class="btn btn-ghost btn-sm" onclick="renderPage()">🔄 Refresh</button>
+        <button class="btn btn-orange" id="btnNewProject">+ New Request</button>
+      </div>
+    </div>
+    <div id="projectsGrid" class="projects-grid"></div>
+  `;
+
+  document.getElementById("fSearch").addEventListener("input",loadProjects);
+  document.getElementById("fType").addEventListener("change",loadProjects);
+  document.getElementById("fStatus").addEventListener("change",loadProjects);
+  document.getElementById("btnNewProject").addEventListener("click",openCreateProjectModal);
+
+  await loadProjects();
+}
+window.renderPage=renderPage;
+
+function setTab(tab){ activeTab=tab; renderPage(); }
+window.setTab=setTab;
+
+/* ═══════════════════════════════════
+   LOAD PROJECTS
+═══════════════════════════════════ */
+async function loadProjects(){
+  const grid=document.getElementById("projectsGrid");
+  const kpiGrid=document.getElementById("kpiGrid");
+  if(!grid) return;
+  grid.innerHTML=`<div class="empty">Loading projects…</div>`;
+
+  const q    =(document.getElementById("fSearch")?.value||"").trim().toLowerCase();
+  const type =document.getElementById("fType")?.value||"";
+  const stat =document.getElementById("fStatus")?.value||"";
+
+  const [projRes,users]=await Promise.all([
+    supabase.from("pm_projects").select("*").eq("is_deleted",false).order("created_at",{ascending:false}),
+    fetchUsers()
+  ]);
+
+  if(projRes.error){ grid.innerHTML=`<div class="empty">Error loading</div>`; return; }
+
+  const um=uMap(users);
+  let projects=projRes.data||[];
+
+  // Tab filter
+  if(activeTab==="mine") projects=projects.filter(p=>p.owner_user_id===currentUser.id||p.created_by_user_id===currentUser.id);
+  if(activeTab==="review") projects=projects.filter(p=>p.status==="Requested"||p.status==="Under Review");
+
+  if(type) projects=projects.filter(p=>p.area===type);
+  if(stat) projects=projects.filter(p=>p.status===stat);
+  if(q)    projects=projects.filter(p=>`${p.name||""} ${p.objective||""}`.toLowerCase().includes(q));
+
+  // KPIs
+  const active   =projects.filter(p=>["Draft","In Progress","On Hold"].includes(p.status)).length;
+  const completed=projects.filter(p=>p.status==="Completed").length;
+  const overdue  =projects.filter(p=>p.status!=="Completed"&&isPast(p.due_date)).length;
+  const review   =projects.filter(p=>p.status==="Requested"||p.status==="Under Review").length;
+
+  if(kpiGrid) kpiGrid.innerHTML=`
+    <div class="kpi-card"><div class="kpi-label">Total</div><div class="kpi-value">${projects.length}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Active</div><div class="kpi-value" style="color:var(--accent)">${active}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Completed</div><div class="kpi-value" style="color:var(--green)">${completed}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Overdue</div><div class="kpi-value" style="color:var(--red)">${overdue}</div></div>
+    ${isPM?`<div class="kpi-card"><div class="kpi-label">Awaiting Review</div><div class="kpi-value" style="color:var(--orange)">${review}</div></div>`:""}
+  `;
+
+  if(!projects.length){
+    grid.innerHTML=`<div class="empty"><div class="empty-icon">📂</div><div class="empty-title">No projects found</div></div>`;
+    return;
+  }
+
+  grid.innerHTML=projects.map(p=>{
+    const owner=um[p.owner_user_id]?.full_name||"Unassigned";
+    const sc=projStatusClass(p.status);
+    const rc=Number(p.review_count||0);
+    const reviewPill=rc>0?`<span class="review-pill r${Math.min(rc,3)}">⟳ ${rc}/${MAX_REVIEWS}</span>`:"";
+    return `
+      <div class="pcard s-${sc}" data-pid="${esc(p.id)}" tabindex="0">
+        <div class="pcard-area">${esc(p.area||"—")}</div>
+        <div class="pcard-name">${esc(p.name||"Untitled")}</div>
+        <div class="pcard-obj">${esc(p.objective||"No objective defined.")}</div>
+        <div class="pcard-meta">
+          <div class="pcard-row"><span class="lbl">Owner</span><span class="val">${esc(owner)}</span></div>
+          <div class="pcard-row"><span class="lbl">Dates</span><span class="val">${esc(p.start_date||"—")} → ${esc(p.due_date||"—")}</span></div>
+        </div>
+        <div class="progress-bg"><div class="progress-fill" style="width:${fmtNum(p.progress_percent,0)}%"></div></div>
+        <div class="progress-lbl">${fmtNum(p.progress_percent,0)}% complete</div>
+        <div class="pcard-footer">
+          ${badgeStatus(p.status)}
+          ${badgePriority(p.priority||"Medium")}
+          ${reviewPill}
+        </div>
+      </div>`;
+  }).join("");
+
+  grid.querySelectorAll("[data-pid]").forEach(card=>{
+    card.addEventListener("click",()=>openProjectDetail(card.getAttribute("data-pid")));
+    card.addEventListener("keydown",e=>{if(e.key==="Enter")card.click();});
+  });
+}
+window.loadProjects=loadProjects;
+
+/* ═══════════════════════════════════
+   CREATE PROJECT (SOLICITUD)
+═══════════════════════════════════ */
+async function openCreateProjectModal(){
+  const users=await fetchUsers();
+
+  const body=`
+    <div class="panel">
+      <div class="panel-title">Project Request</div>
+      <div class="form-grid">
+        <div class="fg2 full"><label>Project Name *</label><input id="cpName" class="fi2" placeholder="Project name"></div>
+        <div class="fg2"><label>Type *</label>
+          <select id="cpType" class="fi2">
+            ${PM_TYPES.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="fg2"><label>Priority</label>
+          <select id="cpPriority" class="fi2">
+            ${PM_PRIORITIES.map(p=>`<option value="${esc(p)}"${p==="Medium"?" selected":""}>${esc(p)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="fg2"><label>Owner *</label>
+          <select id="cpOwner" class="fi2">${renderUserOpts(users,currentUser.id)}</select>
+        </div>
+        <div class="fg2"><label>Start Date *</label><input type="date" id="cpStart" class="fi2"></div>
+        <div class="fg2">
+          <label>Due Date * ${isPM?"":`<span style="color:var(--ink-3);font-weight:400;font-size:10px;">(suggested — PM may adjust)</span>`}</label>
+          <input type="date" id="cpDue" class="fi2">
+        </div>
+        <div class="fg2 full"><label>Objective</label><textarea id="cpObjective" class="fi2" rows="3" placeholder="What should this project achieve?"></textarea></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Collaborators</div>
+      ${renderCollabPicker(users,[],"cp_collabs")}
+    </div>
+    <div style="background:var(--orange-bg);border:1px solid #fed7aa;border-radius:10px;padding:12px;font-size:12px;color:#9a3412;">
+      ℹ️ After submitting, complete the <strong>Requirements Template</strong> in the project detail. The PM will review once submitted.
+    </div>`;
+
+  const footer=`<button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-orange" id="cpSubmit">Submit Request</button>`;
+  const {el,close}=openModal(mShell("New Project Request","Fill in the basics — requirements come next",body,footer),"modal-md");
+  el.querySelector("#cpSubmit").addEventListener("click",async()=>{ await createProject(el.querySelector("#cpSubmit"),close); });
+}
+window.openCreateProjectModal=openCreateProjectModal;
+
+async function createProject(btn,closeModal){
+  const name    =document.getElementById("cpName")?.value?.trim();
+  const area    =document.getElementById("cpType")?.value;
+  const priority=document.getElementById("cpPriority")?.value||"Medium";
+  const ownerId =document.getElementById("cpOwner")?.value;
+  const start   =document.getElementById("cpStart")?.value;
+  const due     =document.getElementById("cpDue")?.value;
+  const objective=document.getElementById("cpObjective")?.value?.trim()||null;
+  const collabs =getChecked("cp_collabs");
+
+  if(!name||!area||!start||!due||!ownerId){ alert("Please fill Name, Type, Owner, Start Date and Due Date."); return; }
+  if(new Date(due)<new Date(start)){ alert("Due date cannot be before start date."); return; }
+
+  btn.disabled=true; btn.textContent="Submitting…";
+
+  const {data:proj,error}=await supabase.from("pm_projects").insert({
+    name,area,priority,status:"Requested",
+    owner_user_id:ownerId,created_by_user_id:currentUser.id,
+    start_date:start,due_date:due,objective,
+    submitted_at:new Date().toISOString(),review_count:0
+  }).select("*").single();
+
+  if(error||!proj){ alert(error?.message||"Error"); btn.disabled=false; btn.textContent="Submit Request"; return; }
+
+  // Members
+  const mRows=[{project_id:proj.id,user_id:ownerId,member_role_in_project:"owner"}];
+  collabs.filter(id=>id&&id!==ownerId).forEach(id=>mRows.push({project_id:proj.id,user_id:id,member_role_in_project:"collaborator"}));
+  if(mRows.length) await supabase.from("pm_project_members").insert(mRows);
+
+  closeModal?.();
+  await renderPage();
+  // Auto-open detail so owner can fill requirements
+  await openProjectDetail(proj.id);
+}
+
+/* ═══════════════════════════════════
+   PROJECT DETAIL
+═══════════════════════════════════ */
+async function openProjectDetail(projectId){
+  const [projRes,tasksRes,linksRes,membersRes,users]=await Promise.all([
+    supabase.from("pm_projects").select("*").eq("id",projectId).single(),
+    supabase.from("pm_tasks").select("*").eq("project_id",projectId).eq("is_deleted",false).order("created_at",{ascending:true}),
+    supabase.from("pm_project_links").select("*").eq("project_id",projectId).order("created_at",{ascending:false}),
+    supabase.from("pm_project_members").select("*").eq("project_id",projectId),
+    fetchUsers()
+  ]);
+
+  if(projRes.error||!projRes.data){ alert("Could not load project."); return; }
+
+  const project =projRes.data;
+  const tasks   =tasksRes.data||[];
+  const links   =linksRes.data||[];
+  const members =membersRes.data||[];
+  const um      =uMap(users);
+
+  const suggested=tasks.filter(t=>t.status==="Suggested");
+  const regular  =tasks.filter(t=>t.status!=="Suggested");
+  const weighted =computeProgress(tasks);
+  const ownerName=um[project.owner_user_id]?.full_name||"Unassigned";
+  const compliance=projCompliance(project);
+  const rc=Number(project.review_count||0);
+  const isOwnerOrPM=isPM||(project.owner_user_id===currentUser.id)||(project.created_by_user_id===currentUser.id);
+
+  // Parse requirements
+  let req={};
+  try{ req=(typeof project.requirements==="object"&&project.requirements!==null)?project.requirements:JSON.parse(project.requirements||"{}"); }catch(e){}
+
+  /* ── BANNERS ── */
+  let bannerHtml="";
+
+  if(project.status==="Requested"&&isOwnerOrPM){
+    bannerHtml+=`<div class="banner banner-orange">
+      <div><div class="banner-text">📋 Awaiting PM Review</div>
+      <div class="banner-sub">Make sure the Requirements Template is complete before the PM reviews.</div></div>
+    </div>`;
+  }
+
+  if(project.status==="Under Review"&&isPM){
+    bannerHtml+=`<div class="banner banner-purple">
+      <div><div class="banner-text">🔍 Under Review</div>
+      <div class="banner-sub">Review the requirements template and approve or reject this project request.</div></div>
+      <div style="display:flex;gap:8px;flex-shrink:0;">
+        <button class="btn btn-success btn-sm" id="btnApprove">✓ Approve</button>
+        <button class="btn btn-danger btn-sm" id="btnReject">✕ Reject</button>
+      </div>
+    </div>`;
+  }
+
+  if(project.status==="Requested"&&isPM){
+    bannerHtml+=`<div class="banner banner-orange" style="margin-top:0;">
+      <div><div class="banner-text">👀 New Request</div>
+      <div class="banner-sub">Project request awaiting your review.</div></div>
+      <div style="display:flex;gap:8px;flex-shrink:0;">
+        <button class="btn btn-purple btn-sm" id="btnStartReview">Start Review</button>
+      </div>
+    </div>`;
+  }
+
+  if(project.status==="Draft"&&isOwnerOrPM){
+    bannerHtml+=`<div class="banner banner-blue">
+      <div><div class="banner-text">✅ Approved — Add Tasks</div>
+      <div class="banner-sub">Submit your Suggested Assignments. The PM will approve them before work begins.</div></div>
+    </div>`;
+  }
+
+  if(project.status==="In Progress"&&isPM){
+    bannerHtml+=`<div class="banner banner-green">
+      <div><div class="banner-text">Project in progress</div><div class="banner-sub">${fmtNum(weighted.pct,1)}% complete</div></div>
+      <button class="btn btn-success btn-sm" id="btnComplete">✓ Mark Complete</button>
+    </div>`;
+  }
+
+  if(project.status==="Completed"){
+    bannerHtml+=`<div class="banner banner-green">
+      <div><div class="banner-text">✅ Project Completed</div>
+      <div class="banner-sub">Completed on ${esc(project.completed_at?.split("T")[0]||"—")} · ${badgeCompliance(compliance)}</div></div>
+    </div>`;
+  }
+
+  if(project.status==="Cancelled"&&project.cancelled_until){
+    bannerHtml+=`<div class="banner banner-red">
+      <div><div class="banner-text">🚫 Cancelled</div>
+      <div class="banner-sub">This project was rejected ${MAX_REVIEWS} times and is frozen until ${esc(project.cancelled_until)}.</div></div>
+    </div>`;
+  }
+
+  if(rc>0&&rc<MAX_REVIEWS&&["Requested","Draft"].includes(project.status)){
+    bannerHtml+=`<div style="background:var(--red-bg);border:1px solid #fecaca;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--red);font-weight:700;">
+      ⚠️ This project has been rejected ${rc} time(s). ${MAX_REVIEWS-rc} attempt(s) remaining.
+      ${project.rejection_notes?`<div style="margin-top:6px;font-weight:400;color:#7f1d1d;">${esc(project.rejection_notes)}</div>`:""}
+    </div>`;
+  }
+
+  /* ── MEMBER CHIPS ── */
+  const memberChips=members.map(m=>`<span class="chip">${esc(um[m.user_id]?.full_name||"Unknown")} · ${esc(m.member_role_in_project||"member")}</span>`).join("")||`<span class="chip">No members</span>`;
+
+  /* ── LINKS ── */
+  const linksHtml=links.length?links.map(l=>`
+    <div class="row">
+      <div class="row-left"><div class="row-main">${esc(l.title||"Untitled")}</div><div class="row-sub" style="word-break:break-all">${esc(l.url||"")}</div></div>
+      <a href="${esc(l.url||"#")}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">Open ↗</a>
+    </div>`).join(""):`<div class="empty" style="padding:12px">No links yet.</div>`;
+
+  /* ── SUGGESTED TASKS ── */
+  const suggestedHtml=suggested.length?`
+    <div class="suggested-section">
+      <div class="panel-title" style="color:var(--purple);">🟣 Suggested Assignments <span class="badge b-suggested">${suggested.length}</span></div>
+      ${suggested.map(t=>{
+        const tOwner=um[t.owner_user_id]?.full_name||"Unassigned";
+        return `<div class="sug-item" data-sug-id="${esc(t.id)}">
+          <div class="sug-item-name">${esc(t.name||"Untitled task")}</div>
+          <div class="sug-item-meta">
+            <span><strong>Owner:</strong> ${esc(tOwner)}</span>
+            <span><strong>Due:</strong> ${esc(t.due_date||"—")} · <strong>Hours:</strong> ${fmtNum(t.allocated_hours,1)}h · <strong>Weight:</strong> ${fmtNum(t.weight_percent,2)}%</span>
+          </div>
+          ${isPM?`<div class="sug-actions">
+            <button class="btn btn-success btn-sm" data-approve-task="${esc(t.id)}">✓ Approve</button>
+            <button class="btn btn-danger btn-sm" data-decline-task="${esc(t.id)}">✕ Decline</button>
+          </div>`:`<span class="badge b-suggested">Pending PM approval</span>`}
+        </div>`;
+      }).join("")}
+    </div>`:"";
+
+  /* ── REQUIREMENTS TEMPLATE ── */
+  const canEditReq=isOwnerOrPM;
+  const reqHtml=`
+    <div class="req-section">
+      <div class="req-section-title">📋 Requirements Template
+        ${canEditReq?`<button class="btn btn-sm" style="background:#fff;color:#92400e;border:1px solid #fde68a;" id="btnEditReq">✏️ Edit</button>`:""}
+      </div>
+
+      ${buildReqView(req,1,"Información General del Proyecto",["¿Nombre del proyecto?","¿Área solicitante?","¿Solicitante (nombre y rol)?"])}
+      ${buildReqView(req,2,"Objetivo del Proyecto",["¿Qué se busca lograr?","¿Por qué es importante?","¿Qué problema resuelve?"])}
+      ${buildReqView(req,3,"Alcance",["¿Qué incluye?","¿Qué no incluye?","¿Qué esperas recibir?","¿Qué sería una mala experiencia?","Si recortáramos tiempo, ¿qué es indispensable?"])}
+      ${buildReqView(req,4,"Requerimientos",["Req 1 — ¿Qué problema tienes?","Req 1 — ¿Qué impacto tiene?","Req 2 — Cambios de estructura (si aplica)","Req 3 — Requerimientos técnicos"])}
+      ${buildReqView(req,5,"Stakeholders y Usuarios",["Stakeholders clave","Usuarios finales","Áreas involucradas"])}
+      ${buildReqView(req,6,"Tiempos y Fechas Clave",["Fecha ideal de inicio","Fecha objetivo de entrega","Fechas críticas / hitos","¿Quién necesita visibilidad del avance?"])}
+      ${buildReqView(req,7,"Prioridad del Proyecto",["Tipo de prioridad (P0/P1/P2/P3)","¿Por qué se considera urgente?"])}
+      ${buildReqView(req,8,"Riesgos y Dependencias",["Riesgos identificados","Dependencias","¿Qué podría retrasar el proyecto?","¿Dependemos de aprobaciones externas?"])}
+      ${buildReqView(req,9,"Bloqueos",["¿Qué asumimos para avanzar?","¿Se necesita presupuesto aprobado?","¿Se cuenta con accesos o herramientas?"])}
+      ${buildReqView(req,10,"Métricas de Éxito (KPIs)",["KPI 1","KPI 2","KPI 3","¿Qué indicadores deben mejorar?"])}
+      ${buildReqView(req,11,"Recursos Requeridos",["Personas necesarias","Herramientas requeridas","Presupuesto (si aplica)"])}
+    </div>`;
+
+  /* ── KANBAN ── */
+  const kanbanStatuses=["To Do","In Progress","Blocked","Paused","Done","Cancelled"];
+  const kanbanHtml=kanbanStatuses.map(s=>renderKanbanCol(s,regular,um)).join("");
+
+  /* ── BUILD BODY ── */
+  const body=`
+    ${bannerHtml}
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-title">Project Info</div>
+        <div class="kv-grid">
+          <div class="kv"><span class="kv-l">Owner</span><span class="kv-v">${esc(ownerName)}</span></div>
+          <div class="kv"><span class="kv-l">Status</span>${badgeStatus(project.status)}</div>
+          <div class="kv"><span class="kv-l">Type</span><span class="kv-v">${esc(project.area||"—")}</span></div>
+          <div class="kv"><span class="kv-l">Priority</span>${badgePriority(project.priority||"Medium")}</div>
+          <div class="kv"><span class="kv-l">Start</span><span class="kv-v">${esc(project.start_date||"—")}</span></div>
+          <div class="kv"><span class="kv-l">Due</span>
+            <span class="kv-v" style="display:flex;align-items:center;gap:8px;">
+              ${esc(project.due_date||"—")}
+              ${isPM&&project.status!=="Completed"?`<button class="btn btn-ghost btn-sm" id="btnEditDue" style="padding:3px 8px;font-size:11px;">✏️</button>`:""}
+            </span>
+          </div>
+          ${rc>0?`<div class="kv"><span class="kv-l">Review attempts</span><span class="kv-v" style="color:var(--red)">${rc} / ${MAX_REVIEWS}</span></div>`:""}
+        </div>
+        ${project.objective?`<div style="margin-top:12px;"><div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);margin-bottom:5px;">Objective</div><div style="font-size:13px;color:var(--ink-2);line-height:1.5">${esc(project.objective)}</div></div>`:""}
+        <div style="margin-top:12px;"><div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px;">Members</div><div class="chips">${memberChips}</div></div>
+      </div>
+
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-title">Progress</div>
+        <div class="progress-bg" style="height:10px;"><div class="progress-fill" style="width:${fmtNum(weighted.pct,1)}%"></div></div>
+        <div style="font-size:24px;font-weight:900;margin:8px 0;">${fmtNum(weighted.pct,1)}%</div>
+        <div class="kv-grid">
+          <div class="kv"><span class="kv-l">Tasks</span><span class="kv-v">${regular.length}</span></div>
+          <div class="kv"><span class="kv-l">Done</span><span class="kv-v">${regular.filter(t=>t.status==="Done").length}</span></div>
+          ${suggested.length?`<div class="kv"><span class="kv-l">Pending approval</span><span class="kv-v" style="color:var(--purple)">${suggested.length}</span></div>`:""}
+          <div class="kv"><span class="kv-l">Compliance</span>${badgeCompliance(compliance)}</div>
+        </div>
+      </div>
+    </div>
+
+    ${reqHtml}
+
+    ${suggestedHtml}
+
+    <div class="panel">
+      <div class="panel-title">Project Links
+        ${isPM?`<button class="btn btn-ghost btn-sm" id="btnAddLink">+ Add Link</button>`:""}
+      </div>
+      ${linksHtml}
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Tasks · Kanban
+        <button class="btn btn-primary btn-sm" id="btnAddTask">+ ${isPM?"Add Task":"Suggest Assignment"}</button>
+      </div>
+      <div class="kanban-wrap" style="margin-top:10px;">${kanbanHtml}</div>
+    </div>
+  `;
+
+  const footer=`<button class="btn btn-ghost" data-close>Close</button>`;
+  const {el,close}=openModal(mShell(project.name||"Project",`${project.area||"—"} · ${project.status}`,body,footer));
+
+  /* ── WIRE BUTTONS ── */
+
+  // Start review (PM moves Requested → Under Review)
+  el.querySelector("#btnStartReview")?.addEventListener("click",async()=>{
+    await supabase.from("pm_projects").update({status:"Under Review"}).eq("id",project.id);
+    close(); await renderPage(); await openProjectDetail(project.id);
+  });
+
+  // Approve project
+  el.querySelector("#btnApprove")?.addEventListener("click",async()=>{
+    if(!isPM) return;
+    if(!confirm(`Approve "${project.name}"?`)) return;
+    await supabase.from("pm_projects").update({status:"Draft",approved_at:new Date().toISOString()}).eq("id",project.id);
+    close(); await renderPage(); await openProjectDetail(project.id);
+  });
+
+  // Reject project
+  el.querySelector("#btnReject")?.addEventListener("click",async()=>{
+    if(!isPM) return;
+    const note=prompt("Rejection reason (required):");
+    if(!note?.trim()) return;
+    const newRc=rc+1;
+    if(newRc>=MAX_REVIEWS){
+      // Cancel for 30 days
+      const cancelUntil=new Date(); cancelUntil.setDate(cancelUntil.getDate()+30);
+      await supabase.from("pm_projects").update({
+        status:"Cancelled",review_count:newRc,rejection_notes:note.trim(),
+        cancelled_until:cancelUntil.toISOString().split("T")[0]
+      }).eq("id",project.id);
+      alert(`This project has been rejected ${MAX_REVIEWS} times and is now cancelled for 30 days.`);
+    } else {
+      await supabase.from("pm_projects").update({
+        status:"Requested",review_count:newRc,rejection_notes:note.trim()
+      }).eq("id",project.id);
+    }
+    close(); await renderPage(); await openProjectDetail(project.id);
+  });
+
+  // Mark complete
+  el.querySelector("#btnComplete")?.addEventListener("click",async()=>{
+    if(!isPM) return;
+    if(!confirm(`Mark "${project.name}" as Completed?`)) return;
+    await supabase.from("pm_projects").update({status:"Completed",completed_at:new Date().toISOString()}).eq("id",project.id);
+    close(); await renderPage(); await openProjectDetail(project.id);
+  });
+
+  // Edit due date (PM only)
+  el.querySelector("#btnEditDue")?.addEventListener("click",async()=>{
+    const newDue=prompt("New due date (YYYY-MM-DD):",project.due_date||"");
+    if(!newDue?.match(/^\d{4}-\d{2}-\d{2}$/)) return;
+    await supabase.from("pm_projects").update({due_date:newDue}).eq("id",project.id);
+    close(); await openProjectDetail(project.id);
+  });
+
+  // Edit requirements
+  el.querySelector("#btnEditReq")?.addEventListener("click",()=>openEditReqModal(project,close));
+
+  // Add link
+  el.querySelector("#btnAddLink")?.addEventListener("click",()=>openAddLinkModal(project.id,close));
+
+  // Add task
+  el.querySelector("#btnAddTask")?.addEventListener("click",()=>openAddTaskModal(project.id,close));
+
+  // Approve / Decline suggested tasks
+  el.querySelectorAll("[data-approve-task]").forEach(btn=>{
+    btn.addEventListener("click",async()=>{
+      if(!isPM) return;
+      await supabase.from("pm_tasks").update({status:"To Do"}).eq("id",btn.getAttribute("data-approve-task"));
+      // Check if all suggested tasks approved → move to In Progress
+      const {data:remaining}=await supabase.from("pm_tasks").select("id").eq("project_id",project.id).eq("status","Suggested").eq("is_deleted",false);
+      if(!remaining?.length && project.status==="Draft"){
+        await supabase.from("pm_projects").update({status:"In Progress"}).eq("id",project.id);
+      }
+      close(); await renderPage(); await openProjectDetail(project.id);
+    });
+  });
+
+  el.querySelectorAll("[data-decline-task]").forEach(btn=>{
+    btn.addEventListener("click",async()=>{
+      if(!isPM) return;
+      if(!confirm("Decline this suggested task?")) return;
+      await supabase.from("pm_tasks").update({status:"Cancelled"}).eq("id",btn.getAttribute("data-decline-task"));
+      close(); await renderPage(); await openProjectDetail(project.id);
+    });
+  });
+}
+window.openProjectDetail=openProjectDetail;
+
+/* ═══════════════════════════════════
+   REQUIREMENTS HELPERS
+═══════════════════════════════════ */
+function buildReqView(req,sectionNum,title,questions){
+  const data=req[`s${sectionNum}`]||{};
+  const filled=questions.some((_,i)=>data[`q${i}`]);
+  return `
+    <div class="req-block">
+      <div class="req-block-title">${sectionNum}. ${esc(title)} ${filled?"":"<span style='color:#ef4444;font-size:10px;'>⚠ Incomplete</span>"}</div>
+      ${questions.map((q,i)=>`
+        <div style="margin-bottom:8px;">
+          <div style="font-size:11px;color:var(--ink-3);font-weight:700;margin-bottom:3px;">${esc(q)}</div>
+          <div style="font-size:13px;color:var(--ink);line-height:1.4;min-height:20px;">${data[`q${i}`]?esc(data[`q${i}`]):`<span style="color:var(--ink-4);font-style:italic;">Not filled yet</span>`}</div>
+        </div>`).join("")}
+    </div>`;
+}
+
+/* ═══════════════════════════════════
+   EDIT REQUIREMENTS MODAL
+═══════════════════════════════════ */
+function openEditReqModal(project,closeParent){
+  let req={};
+  try{ req=(typeof project.requirements==="object"&&project.requirements!==null)?project.requirements:JSON.parse(project.requirements||"{}"); }catch(e){}
+
+  const sections=[
+    {num:1,title:"1. Información General",questions:["¿Nombre del proyecto?","¿Área solicitante?","¿Solicitante (nombre y rol)?"]},
+    {num:2,title:"2. Objetivo del Proyecto",questions:["¿Qué se busca lograr?","¿Por qué es importante?","¿Qué problema resuelve?"]},
+    {num:3,title:"3. Alcance",questions:["¿Qué incluye?","¿Qué no incluye?","¿Qué esperas recibir?","¿Qué sería una mala experiencia?","Si recortáramos tiempo, ¿qué es indispensable?"]},
+    {num:4,title:"4. Requerimientos",questions:["Req 1 — ¿Qué problema tienes?","Req 1 — ¿Qué impacto tiene?","Req 2 — Cambios de estructura (si aplica)","Req 3 — Requerimientos técnicos"]},
+    {num:5,title:"5. Stakeholders y Usuarios",questions:["Stakeholders clave","Usuarios finales","Áreas involucradas"]},
+    {num:6,title:"6. Tiempos y Fechas Clave",questions:["Fecha ideal de inicio","Fecha objetivo de entrega","Fechas críticas / hitos","¿Quién necesita visibilidad del avance?"]},
+    {num:7,title:"7. Prioridad",questions:["Tipo de prioridad (P0/P1/P2/P3)","¿Por qué se considera urgente?"]},
+    {num:8,title:"8. Riesgos y Dependencias",questions:["Riesgos identificados","Dependencias","¿Qué podría retrasar el proyecto?","¿Dependemos de aprobaciones externas?"]},
+    {num:9,title:"9. Bloqueos",questions:["¿Qué asumimos para avanzar?","¿Se necesita presupuesto aprobado?","¿Se cuenta con accesos o herramientas?"]},
+    {num:10,title:"10. Métricas de Éxito (KPIs)",questions:["KPI 1","KPI 2","KPI 3","¿Qué indicadores deben mejorar?"]},
+    {num:11,title:"11. Recursos Requeridos",questions:["Personas necesarias","Herramientas requeridas","Presupuesto (si aplica)"]}
+  ];
+
+  const body=sections.map(s=>`
+    <div class="req-block">
+      <div class="req-block-title">${esc(s.title)}</div>
+      <div class="form-grid form-grid-1">
+        ${s.questions.map((q,i)=>`
+          <div class="fg2">
+            <label>${esc(q)}</label>
+            <textarea class="fi2" id="req_s${s.num}_q${i}" rows="2">${esc(req[`s${s.num}`]?.[`q${i}`]||"")}</textarea>
+          </div>`).join("")}
+      </div>
+    </div>`).join("");
+
+  const footer=`<button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-primary" id="reqSave">Save Requirements</button>`;
+  const {el,close}=openModal(mShell("Requirements Template","Fill all sections before PM review",body,footer));
+
+  el.querySelector("#reqSave").addEventListener("click",async()=>{
+    const newReq={};
+    sections.forEach(s=>{
+      newReq[`s${s.num}`]={};
+      s.questions.forEach((_,i)=>{
+        const val=document.getElementById(`req_s${s.num}_q${i}`)?.value?.trim()||"";
+        newReq[`s${s.num}`][`q${i}`]=val;
+      });
+    });
+
+    const {error}=await supabase.from("pm_projects").update({requirements:newReq}).eq("id",project.id);
+    if(error){ alert(error.message); return; }
+    close();
+    closeParent?.();
+    await renderPage();
+    await openProjectDetail(project.id);
+  });
+}
+window.openEditReqModal=openEditReqModal;
+
+/* ═══════════════════════════════════
+   KANBAN COLUMN
+═══════════════════════════════════ */
+function renderKanbanCol(status,tasks,um){
+  const filtered=tasks.filter(t=>t.status===status);
+  const dot=dotColor(status);
+  return `
+    <div class="kanban-col" style="border-top:3px solid ${dot};">
+      <div class="kanban-col-hdr">
+        <div class="kanban-col-title"><span class="k-dot" style="background:${dot}"></span>${esc(status)}</div>
+        <span class="k-cnt">${filtered.length}</span>
+      </div>
+      <div class="kanban-col-body">
+        ${filtered.length?filtered.map(t=>{
+          const owner=um[t.owner_user_id]?.full_name||"Unassigned";
+          return `<div class="k-card">
+            <div class="k-card-name">${esc(t.name||"Untitled")}</div>
+            <div class="k-card-meta">
+              <span><strong>Owner:</strong> ${esc(owner)}</span>
+              <span><strong>Due:</strong> ${esc(t.due_date||"—")}</span>
+              <span><strong>Hours:</strong> ${fmtNum(t.allocated_hours,1)}h · <strong>Weight:</strong> ${fmtNum(t.weight_percent,2)}%</span>
+            </div>
+            <div class="k-card-foot">${badgeCompliance(taskCompliance(t))}</div>
+          </div>`;
+        }).join(""):`<div class="empty" style="padding:12px 8px;">No tasks</div>`}
+      </div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════
+   ADD TASK MODAL
+═══════════════════════════════════ */
+async function openAddTaskModal(projectId,closeParent){
+  const users=await fetchUsers();
+  const body=`
+    <div class="panel">
+      <div class="panel-title">${isPM?"Create Task":"Suggest Assignment"}</div>
+      ${!isPM?`<div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:9px;padding:10px 12px;font-size:12px;color:var(--purple);margin-bottom:12px;">Your task will be submitted as a Suggested Assignment and needs PM approval.</div>`:""}
+      <div class="form-grid">
+        <div class="fg2 full"><label>Task Name *</label><input id="ctName" class="fi2" placeholder="Task name"></div>
+        <div class="fg2"><label>Owner *</label><select id="ctOwner" class="fi2">${renderUserOpts(users,currentUser.id)}</select></div>
+        <div class="fg2"><label>Priority</label>
+          <select id="ctPriority" class="fi2">${PM_PRIORITIES.map(p=>`<option value="${esc(p)}"${p==="Medium"?" selected":""}>${esc(p)}</option>`).join("")}</select>
+        </div>
+        <div class="fg2"><label>Start Date *</label><input type="date" id="ctStart" class="fi2"></div>
+        <div class="fg2"><label>Due Date *</label><input type="date" id="ctDue" class="fi2"></div>
+        <div class="fg2"><label>Allocated Hours</label><input type="number" step="0.1" min="0" id="ctHours" class="fi2" placeholder="0"></div>
+        <div class="fg2"><label>Weight %</label><input type="number" step="0.01" min="0" max="100" id="ctWeight" class="fi2" placeholder="0"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Collaborators</div>
+      ${renderCollabPicker(users,[],"ct_collabs")}
+    </div>`;
+
+  const footer=`<button class="btn btn-ghost" data-close>Cancel</button><button class="btn ${isPM?"btn-primary":"btn-purple"}" id="ctSubmit">${isPM?"Create Task":"Submit Suggestion"}</button>`;
+  const {el,close}=openModal(mShell(isPM?"Create Task":"Suggest Assignment","",body,footer),"modal-md");
+  el.querySelector("#ctSubmit").addEventListener("click",async()=>{ await createTask(projectId,el.querySelector("#ctSubmit"),close,closeParent); });
+}
+window.openAddTaskModal=openAddTaskModal;
+
+async function createTask(projectId,btn,closeModal,closeParent){
+  const name    =document.getElementById("ctName")?.value?.trim();
+  const ownerId =document.getElementById("ctOwner")?.value;
+  const status  =isPM?"To Do":"Suggested";
+  const priority=document.getElementById("ctPriority")?.value||"Medium";
+  const start   =document.getElementById("ctStart")?.value;
+  const due     =document.getElementById("ctDue")?.value;
+  const hours   =Number(document.getElementById("ctHours")?.value||0);
+  const weight  =Number(document.getElementById("ctWeight")?.value||0);
+  const collabs =getChecked("ct_collabs");
+
+  if(!name||!start||!due||!ownerId){ alert("Please fill Name, Owner, Start Date and Due Date."); return; }
+  if(new Date(due)<new Date(start)){ alert("Due date cannot be before start date."); return; }
+
+  btn.disabled=true; btn.textContent="Saving…";
+
+  const {data:task,error}=await supabase.from("pm_tasks").insert({
+    project_id:projectId,name,status,priority,
+    owner_user_id:ownerId,created_by_user_id:currentUser.id,
+    start_date:start,due_date:due,allocated_hours:hours,estimated_hours:hours,weight_percent:weight
+  }).select("*").single();
+
+  if(error||!task){ alert(error?.message||"Error creating task"); btn.disabled=false; btn.textContent=isPM?"Create Task":"Submit Suggestion"; return; }
+
+  const cr=collabs.filter(id=>id&&id!==ownerId).map(id=>({task_id:task.id,user_id:id}));
+  if(cr.length) await supabase.from("pm_task_collaborators").insert(cr);
+
+  closeModal?.(); closeParent?.();
+  await renderPage();
+  await openProjectDetail(projectId);
+}
+
+/* ═══════════════════════════════════
+   ADD LINK MODAL
+═══════════════════════════════════ */
+function openAddLinkModal(projectId,closeParent){
+  if(!isPM) return;
+  const body=`<div class="panel"><div class="form-grid form-grid-1">
+    <div class="fg2"><label>Title *</label><input id="alTitle" class="fi2" placeholder="Main doc, spec, etc."></div>
+    <div class="fg2"><label>URL *</label><input id="alUrl" class="fi2" placeholder="https://…"></div>
+  </div></div>`;
+  const footer=`<button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-primary" id="alSubmit">Add Link</button>`;
+  const {el,close}=openModal(mShell("Add Project Link","",body,footer),"modal-sm");
+  el.querySelector("#alSubmit").addEventListener("click",async()=>{
+    const title=document.getElementById("alTitle")?.value?.trim();
+    const url=document.getElementById("alUrl")?.value?.trim();
+    if(!title||!url){ alert("Please fill both fields."); return; }
+    const {error}=await supabase.from("pm_project_links").insert({project_id:projectId,title,url,link_type:"other",added_by_user_id:currentUser.id});
+    if(error){ alert(error.message); return; }
+    close(); closeParent?.();
+    await openProjectDetail(projectId);
+  });
+}
+window.openAddLinkModal=openAddLinkModal;
+</script>
+</body>
+</html>
