@@ -856,7 +856,7 @@ async function openProjectDetail(projectId){
       ${buildReqView(req,3,"Alcance",["¿Qué incluye?","¿Qué no incluye?","¿Qué esperas recibir?","¿Qué sería una mala experiencia?","Si recortáramos tiempo, ¿qué es indispensable?"])}
       ${buildReqView(req,4,"Requerimientos",["Req 1 — ¿Qué problema tienes?","Req 1 — ¿Qué impacto tiene?","Req 2 — Cambios de estructura (si aplica)","Req 3 — Requerimientos técnicos"])}
       ${buildReqView(req,5,"Stakeholders y Usuarios",["Stakeholders clave","Usuarios finales","Áreas involucradas"])}
-      ${buildReqView(req,6,"Tiempos y Fechas Clave",["Fecha ideal de inicio","Fecha objetivo de entrega","Fechas críticas / hitos","¿Quién necesita visibilidad del avance?"])}
+      ${buildReqSection6View(req)}
       ${buildReqView(req,7,"Prioridad del Proyecto",["Tipo de prioridad (P0/P1/P2/P3)","¿Por qué se considera urgente?"])}
       ${buildReqView(req,8,"Riesgos y Dependencias",["Riesgos identificados","Dependencias","¿Qué podría retrasar el proyecto?","¿Dependemos de aprobaciones externas?"])}
       ${buildReqView(req,9,"Bloqueos",["¿Qué asumimos para avanzar?","¿Se necesita presupuesto aprobado?","¿Se cuenta con accesos o herramientas?"])}
@@ -1090,6 +1090,49 @@ function buildReqView(req,sectionNum,title,questions){
     </div>`;
 }
 
+/* Section 6 — Tiempos y Fechas Clave (dates + dynamic milestones) */
+function buildReqSection6View(req){
+  const data = req.s6 || {};
+  const startDate     = data.q0 || "";
+  const dueDate       = data.q1 || "";
+  const milestones    = Array.isArray(data.q2) ? data.q2 : [];
+  const visibility    = data.q3 || "";
+  const filled = startDate || dueDate || milestones.length || visibility;
+
+  return `
+    <div class="req-block">
+      <div class="req-block-title">6. Tiempos y Fechas Clave ${filled?"":"<span style='color:#ef4444;font-size:10px;'>⚠ Incomplete</span>"}</div>
+
+      <div style="margin-bottom:8px;">
+        <div style="font-size:11px;color:var(--ink-3);font-weight:700;margin-bottom:3px;">Fecha ideal de inicio</div>
+        <div style="font-size:13px;color:var(--ink);line-height:1.4;min-height:20px;">${startDate?esc(startDate):`<span style="color:var(--ink-4);font-style:italic;">Not filled yet</span>`}</div>
+      </div>
+
+      <div style="margin-bottom:8px;">
+        <div style="font-size:11px;color:var(--ink-3);font-weight:700;margin-bottom:3px;">Fecha objetivo de entrega</div>
+        <div style="font-size:13px;color:var(--ink);line-height:1.4;min-height:20px;">${dueDate?esc(dueDate):`<span style="color:var(--ink-4);font-style:italic;">Not filled yet</span>`}</div>
+      </div>
+
+      <div style="margin-bottom:8px;">
+        <div style="font-size:11px;color:var(--ink-3);font-weight:700;margin-bottom:5px;">Fechas críticas / hitos</div>
+        ${milestones.length ? `
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            ${milestones.map(m => `
+              <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg);border-radius:8px;padding:7px 10px;font-size:13px;">
+                <span style="font-weight:700;color:var(--ink);">${esc(m.label||"—")}</span>
+                <span style="color:var(--ink-3);font-weight:700;">${esc(m.date||"—")}</span>
+              </div>`).join("")}
+          </div>
+        ` : `<span style="color:var(--ink-4);font-style:italic;font-size:13px;">No milestones yet</span>`}
+      </div>
+
+      <div>
+        <div style="font-size:11px;color:var(--ink-3);font-weight:700;margin-bottom:3px;">¿Quién necesita visibilidad o reportes del avance?</div>
+        <div style="font-size:13px;color:var(--ink);line-height:1.4;min-height:20px;">${visibility?esc(visibility):`<span style="color:var(--ink-4);font-style:italic;">Not filled yet</span>`}</div>
+      </div>
+    </div>`;
+}
+
 /* ═══════════════════════════════════
    EDIT REQUIREMENTS MODAL
 ═══════════════════════════════════ */
@@ -1097,13 +1140,14 @@ function openEditReqModal(project,closeParent){
   let req={};
   try{ req=(typeof project.requirements==="object"&&project.requirements!==null)?project.requirements:JSON.parse(project.requirements||"{}"); }catch(e){}
 
-  const sections=[
+  const sectionsBefore=[
     {num:1,title:"1. Información General",questions:["¿Nombre del proyecto?","¿Área solicitante?","¿Solicitante (nombre y rol)?"]},
     {num:2,title:"2. Objetivo del Proyecto",questions:["¿Qué se busca lograr?","¿Por qué es importante?","¿Qué problema resuelve?"]},
     {num:3,title:"3. Alcance",questions:["¿Qué incluye?","¿Qué no incluye?","¿Qué esperas recibir?","¿Qué sería una mala experiencia?","Si recortáramos tiempo, ¿qué es indispensable?"]},
     {num:4,title:"4. Requerimientos",questions:["Req 1 — ¿Qué problema tienes?","Req 1 — ¿Qué impacto tiene?","Req 2 — Cambios de estructura (si aplica)","Req 3 — Requerimientos técnicos"]},
-    {num:5,title:"5. Stakeholders y Usuarios",questions:["Stakeholders clave","Usuarios finales","Áreas involucradas"]},
-    {num:6,title:"6. Tiempos y Fechas Clave",questions:["Fecha ideal de inicio","Fecha objetivo de entrega","Fechas críticas / hitos","¿Quién necesita visibilidad del avance?"]},
+    {num:5,title:"5. Stakeholders y Usuarios",questions:["Stakeholders clave","Usuarios finales","Áreas involucradas"]}
+  ];
+  const sectionsAfter=[
     {num:7,title:"7. Prioridad",questions:["Tipo de prioridad (P0/P1/P2/P3)","¿Por qué se considera urgente?"]},
     {num:8,title:"8. Riesgos y Dependencias",questions:["Riesgos identificados","Dependencias","¿Qué podría retrasar el proyecto?","¿Dependemos de aprobaciones externas?"]},
     {num:9,title:"9. Bloqueos",questions:["¿Qué asumimos para avanzar?","¿Se necesita presupuesto aprobado?","¿Se cuenta con accesos o herramientas?"]},
@@ -1111,7 +1155,8 @@ function openEditReqModal(project,closeParent){
     {num:11,title:"11. Recursos Requeridos",questions:["Personas necesarias","Herramientas requeridas","Presupuesto (si aplica)"]}
   ];
 
-  const body=sections.map(s=>`
+  function renderGenericSection(s){
+    return `
     <div class="req-block">
       <div class="req-block-title">${esc(s.title)}</div>
       <div class="form-grid form-grid-1">
@@ -1121,20 +1166,97 @@ function openEditReqModal(project,closeParent){
             <textarea class="fi2" id="req_s${s.num}_q${i}" rows="2">${esc(req[`s${s.num}`]?.[`q${i}`]||"")}</textarea>
           </div>`).join("")}
       </div>
-    </div>`).join("");
+    </div>`;
+  }
+
+  // Section 6 data
+  const s6 = req.s6 || {};
+  const startDate  = s6.q0 || "";
+  const dueDate    = s6.q1 || "";
+  const milestones = Array.isArray(s6.q2) ? s6.q2 : [];
+  const visibility = s6.q3 || "";
+
+  function renderMilestoneRow(m, idx){
+    return `
+      <div class="milestone-row" data-idx="${idx}" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+        <input class="fi2 ms-label" placeholder="Hito (ej. Aplazo)" value="${esc(m.label||"")}" style="flex:2;">
+        <input type="date" class="fi2 ms-date" value="${esc(m.date||"")}" style="flex:1;">
+        <button type="button" class="btn btn-danger btn-sm ms-remove" style="padding:8px 10px;">✕</button>
+      </div>`;
+  }
+
+  const section6Html = `
+    <div class="req-block">
+      <div class="req-block-title">6. Tiempos y Fechas Clave</div>
+      <div class="form-grid">
+        <div class="fg2">
+          <label>Fecha ideal de inicio</label>
+          <input type="date" class="fi2" id="req_s6_start" value="${esc(startDate)}">
+        </div>
+        <div class="fg2">
+          <label>Fecha objetivo de entrega</label>
+          <input type="date" class="fi2" id="req_s6_due" value="${esc(dueDate)}">
+        </div>
+        <div class="fg2 full">
+          <label>Fechas críticas / hitos</label>
+          <div id="milestonesContainer">
+            ${milestones.map((m,i)=>renderMilestoneRow(m,i)).join("")}
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" id="btnAddMilestone" style="margin-top:4px;width:fit-content;">+ Add Milestone</button>
+        </div>
+        <div class="fg2 full">
+          <label>¿Quién necesita visibilidad o reportes del avance?</label>
+          <textarea class="fi2" id="req_s6_visibility" rows="2">${esc(visibility)}</textarea>
+        </div>
+      </div>
+    </div>`;
+
+  const body = sectionsBefore.map(renderGenericSection).join("") + section6Html + sectionsAfter.map(renderGenericSection).join("");
 
   const footer=`<button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-primary" id="reqSave">Save Requirements</button>`;
   const {el,close}=openModal(mShell("Requirements Template","Fill all sections before PM review",body,footer));
 
+  let milestoneIdx = milestones.length;
+
+  function wireRemoveButtons(){
+    el.querySelectorAll(".ms-remove").forEach(btn=>{
+      btn.onclick = () => { btn.closest(".milestone-row").remove(); };
+    });
+  }
+  wireRemoveButtons();
+
+  el.querySelector("#btnAddMilestone").addEventListener("click", () => {
+    const container = el.querySelector("#milestonesContainer");
+    const div = document.createElement("div");
+    div.innerHTML = renderMilestoneRow({label:"",date:""}, milestoneIdx++);
+    container.appendChild(div.firstElementChild);
+    wireRemoveButtons();
+  });
+
   el.querySelector("#reqSave").addEventListener("click",async()=>{
     const newReq={};
-    sections.forEach(s=>{
+
+    [...sectionsBefore, ...sectionsAfter].forEach(s=>{
       newReq[`s${s.num}`]={};
       s.questions.forEach((_,i)=>{
         const val=document.getElementById(`req_s${s.num}_q${i}`)?.value?.trim()||"";
         newReq[`s${s.num}`][`q${i}`]=val;
       });
     });
+
+    // Section 6 — dates + milestones
+    const msRows = [...el.querySelectorAll(".milestone-row")];
+    const msData = msRows.map(row => ({
+      label: row.querySelector(".ms-label")?.value?.trim() || "",
+      date:  row.querySelector(".ms-date")?.value || ""
+    })).filter(m => m.label || m.date);
+
+    newReq.s6 = {
+      q0: document.getElementById("req_s6_start")?.value || "",
+      q1: document.getElementById("req_s6_due")?.value || "",
+      q2: msData,
+      q3: document.getElementById("req_s6_visibility")?.value?.trim() || ""
+    };
 
     const {error}=await supabase.from("pm_projects").update({requirements:newReq}).eq("id",project.id);
     if(error){ alert(error.message); return; }
