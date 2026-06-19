@@ -454,11 +454,50 @@ function renderUserOpts(users,selId=""){
 
 function renderCollabPicker(users,selIds=[],name="pm_collabs"){
   const sel=new Set((selIds||[]).map(String));
-  return `<div class="collab-picker">${(users||[]).map(u=>`
-    <label class="collab-item">
-      <input type="checkbox" name="${esc(name)}" value="${esc(u.id)}"${sel.has(String(u.id))?" checked":""}>
-      <div><div class="collab-name">${esc(u.full_name)}</div><div class="collab-area">${esc(u.area||"—")}</div></div>
-    </label>`).join("")}</div>`;
+  const areas=[...new Set((users||[]).map(u=>u.area).filter(Boolean))].sort();
+  const pickerId = `picker_${name}`;
+  return `
+    <div class="collab-picker-wrap" id="${pickerId}">
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <input type="text" class="fi2 collab-search" placeholder="🔍 Search by name…" style="flex:2;">
+        <select class="fi2 collab-area-filter" style="flex:1;">
+          <option value="">All areas</option>
+          ${areas.map(a=>`<option value="${esc(a)}">${esc(a)}</option>`).join("")}
+        </select>
+      </div>
+      <div class="collab-picker">${(users||[]).map(u=>`
+        <label class="collab-item" data-name="${esc((u.full_name||"").toLowerCase())}" data-area="${esc(u.area||"")}">
+          <input type="checkbox" name="${esc(name)}" value="${esc(u.id)}"${sel.has(String(u.id))?" checked":""}>
+          <div><div class="collab-name">${esc(u.full_name)}</div><div class="collab-area">${esc(u.area||"—")}</div></div>
+        </label>`).join("")}</div>
+      <div class="collab-empty" style="display:none;padding:14px;text-align:center;color:var(--ink-3);font-size:12px;">No matches found.</div>
+    </div>`;
+}
+
+function wireCollabPickerFilter(rootEl, name){
+  const wrap = rootEl.querySelector(`#picker_${name}`);
+  if(!wrap) return;
+  const searchInput = wrap.querySelector(".collab-search");
+  const areaFilter  = wrap.querySelector(".collab-area-filter");
+  const items       = [...wrap.querySelectorAll(".collab-item")];
+  const emptyMsg    = wrap.querySelector(".collab-empty");
+
+  function applyFilter(){
+    const q = (searchInput.value||"").trim().toLowerCase();
+    const area = areaFilter.value;
+    let visibleCount = 0;
+    items.forEach(item=>{
+      const matchesName = !q || item.getAttribute("data-name").includes(q);
+      const matchesArea = !area || item.getAttribute("data-area") === area;
+      const show = matchesName && matchesArea;
+      item.style.display = show ? "" : "none";
+      if(show) visibleCount++;
+    });
+    emptyMsg.style.display = visibleCount === 0 ? "" : "none";
+  }
+
+  searchInput.addEventListener("input", applyFilter);
+  areaFilter.addEventListener("change", applyFilter);
 }
 
 function getChecked(name){ return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(el=>el.value); }
@@ -676,6 +715,7 @@ async function openCreateProjectModal(){
 
   const footer=`<button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-orange" id="cpSubmit">Submit Request</button>`;
   const {el,close}=openModal(mShell("New Project Request","Fill in the basics — requirements come next",body,footer),"modal-md");
+  wireCollabPickerFilter(el,"cp_collabs");
   el.querySelector("#cpSubmit").addEventListener("click",async()=>{ await createProject(el.querySelector("#cpSubmit"),close); });
 }
 window.openCreateProjectModal=openCreateProjectModal;
@@ -1433,6 +1473,7 @@ async function openAddTaskModal(projectId,closeParent){
 
   const footer=`<button class="btn btn-ghost" data-close>Cancel</button><button class="btn ${isPM?"btn-primary":"btn-purple"}" id="ctSubmit">${isPM?"Create Task":"Submit Suggestion"}</button>`;
   const {el,close}=openModal(mShell(isPM?"Create Task":"Suggest Assignment","",body,footer),"modal-md");
+  wireCollabPickerFilter(el,"ct_collabs");
   el.querySelector("#ctSubmit").addEventListener("click",async()=>{ await createTask(projectId,el.querySelector("#ctSubmit"),close,closeParent); });
 }
 window.openAddTaskModal=openAddTaskModal;
