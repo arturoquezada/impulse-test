@@ -857,7 +857,7 @@ async function openProjectDetail(projectId){
       ${buildReqView(req,4,"Requerimientos",["Req 1 — ¿Qué problema tienes?","Req 1 — ¿Qué impacto tiene?","Req 2 — Cambios de estructura (si aplica)","Req 3 — Requerimientos técnicos"])}
       ${buildReqView(req,5,"Stakeholders y Usuarios",["Stakeholders clave","Usuarios finales","Áreas involucradas"])}
       ${buildReqSection6View(req)}
-      ${buildReqView(req,7,"Prioridad del Proyecto",["Tipo de prioridad (P0/P1/P2/P3)","¿Por qué se considera urgente?"])}
+      ${buildReqSection7View(req)}
       ${buildReqView(req,8,"Riesgos y Dependencias",["Riesgos identificados","Dependencias","¿Qué podría retrasar el proyecto?","¿Dependemos de aprobaciones externas?"])}
       ${buildReqView(req,9,"Bloqueos",["¿Qué asumimos para avanzar?","¿Se necesita presupuesto aprobado?","¿Se cuenta con accesos o herramientas?"])}
       ${buildReqView(req,10,"Métricas de Éxito (KPIs)",["KPI 1","KPI 2","KPI 3","¿Qué indicadores deben mejorar?"])}
@@ -1133,6 +1133,37 @@ function buildReqSection6View(req){
     </div>`;
 }
 
+
+/* Section 7 — Prioridad (dropdown P0-P3) */
+function buildReqSection7View(req){
+  const data = req.s7 || {};
+  const priorityType = data.q0 || "";
+  const reason = data.q1 || "";
+  const filled = priorityType || reason;
+
+  const priorityLabels = {
+    "P0": "P0 - Crítico",
+    "P1": "P1 - Alto (Urgente)",
+    "P2": "P2 - Medio (Importante)",
+    "P3": "P3 - Bajo (Menor)"
+  };
+
+  return `
+    <div class="req-block">
+      <div class="req-block-title">7. Prioridad ${filled?"":"<span style='color:#ef4444;font-size:10px;'>⚠ Incomplete</span>"}</div>
+
+      <div style="margin-bottom:8px;">
+        <div style="font-size:11px;color:var(--ink-3);font-weight:700;margin-bottom:3px;">Tipo de prioridad</div>
+        <div style="font-size:13px;color:var(--ink);line-height:1.4;min-height:20px;">${priorityType?esc(priorityLabels[priorityType]||priorityType):`<span style="color:var(--ink-4);font-style:italic;">Not filled yet</span>`}</div>
+      </div>
+
+      <div>
+        <div style="font-size:11px;color:var(--ink-3);font-weight:700;margin-bottom:3px;">¿Por qué se considera este nivel de prioridad?</div>
+        <div style="font-size:13px;color:var(--ink);line-height:1.4;min-height:20px;">${reason?esc(reason):`<span style="color:var(--ink-4);font-style:italic;">Not filled yet</span>`}</div>
+      </div>
+    </div>`;
+}
+
 /* ═══════════════════════════════════
    EDIT REQUIREMENTS MODAL
 ═══════════════════════════════════ */
@@ -1148,7 +1179,6 @@ function openEditReqModal(project,closeParent){
     {num:5,title:"5. Stakeholders y Usuarios",questions:["Stakeholders clave","Usuarios finales","Áreas involucradas"]}
   ];
   const sectionsAfter=[
-    {num:7,title:"7. Prioridad",questions:["Tipo de prioridad (P0/P1/P2/P3)","¿Por qué se considera urgente?"]},
     {num:8,title:"8. Riesgos y Dependencias",questions:["Riesgos identificados","Dependencias","¿Qué podría retrasar el proyecto?","¿Dependemos de aprobaciones externas?"]},
     {num:9,title:"9. Bloqueos",questions:["¿Qué asumimos para avanzar?","¿Se necesita presupuesto aprobado?","¿Se cuenta con accesos o herramientas?"]},
     {num:10,title:"10. Métricas de Éxito (KPIs)",questions:["KPI 1","KPI 2","KPI 3","¿Qué indicadores deben mejorar?"]},
@@ -1211,7 +1241,33 @@ function openEditReqModal(project,closeParent){
       </div>
     </div>`;
 
-  const body = sectionsBefore.map(renderGenericSection).join("") + section6Html + sectionsAfter.map(renderGenericSection).join("");
+  // Section 7 data
+  const s7 = req.s7 || {};
+  const priorityType = s7.q0 || "";
+  const priorityReason = s7.q1 || "";
+
+  const section7Html = `
+    <div class="req-block">
+      <div class="req-block-title">7. Prioridad</div>
+      <div class="form-grid">
+        <div class="fg2 full">
+          <label>Tipo de prioridad</label>
+          <select class="fi2" id="req_s7_type">
+            <option value="">Select…</option>
+            <option value="P0"${priorityType==="P0"?" selected":""}>P0 - Crítico</option>
+            <option value="P1"${priorityType==="P1"?" selected":""}>P1 - Alto (Urgente)</option>
+            <option value="P2"${priorityType==="P2"?" selected":""}>P2 - Medio (Importante)</option>
+            <option value="P3"${priorityType==="P3"?" selected":""}>P3 - Bajo (Menor)</option>
+          </select>
+        </div>
+        <div class="fg2 full">
+          <label>¿Por qué se considera este nivel de prioridad?</label>
+          <textarea class="fi2" id="req_s7_reason" rows="2">${esc(priorityReason)}</textarea>
+        </div>
+      </div>
+    </div>`;
+
+  const body = sectionsBefore.map(renderGenericSection).join("") + section6Html + section7Html + sectionsAfter.map(renderGenericSection).join("");
 
   const footer=`<button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-primary" id="reqSave">Save Requirements</button>`;
   const {el,close}=openModal(mShell("Requirements Template","Fill all sections before PM review",body,footer));
@@ -1256,6 +1312,11 @@ function openEditReqModal(project,closeParent){
       q1: document.getElementById("req_s6_due")?.value || "",
       q2: msData,
       q3: document.getElementById("req_s6_visibility")?.value?.trim() || ""
+    };
+
+    newReq.s7 = {
+      q0: document.getElementById("req_s7_type")?.value || "",
+      q1: document.getElementById("req_s7_reason")?.value?.trim() || ""
     };
 
     const {error}=await supabase.from("pm_projects").update({requirements:newReq}).eq("id",project.id);
