@@ -1696,9 +1696,8 @@ function _buildAppShell() {
   const av = ro.av || initials(ro.name || '??');
 
   const allMods = [
-    {id:'asistencia',   icon:'👤', label:'Asistencia',   roles:['agent','supervisor','manager','people','head_people','ceo']},
+    {id:'asistencia',   icon:'👤', label:'Asistencia',   roles:['agent','supervisor','manager','people','head_people','ceo','workforce']},
     {id:'nomina',       icon:'💰', label:'Nómina',        roles:['supervisor','manager','people','head_people','ceo']},
-    {id:'qa',           icon:'⭐', label:'QA',            roles:['agent','supervisor','manager','people','head_people','ceo']},
     {id:'tickets',      icon:'🎫', label:'Tickets HR',    roles:['agent','supervisor','manager','people','head_people']},
     {id:'permutas',     icon:'🔄', label:'Permutas',      roles:['agent','supervisor','manager','people','head_people']},
     {id:'vacaciones',   icon:'🏖️', label:'Vacaciones',    roles:['agent','supervisor','manager','people','head_people']},
@@ -1855,13 +1854,14 @@ const ROLES={
   agent:      {label:'Agente',        av:'MR',name:'María Reyes',   id:'CX00023',camp:'Aplazo', puesto:'Agente de Operaciones',   ingreso:'2025-03-15',shift:'08:00-17:00',salary:14500},
   supervisor: {label:'Supervisor',    av:'LT',name:'Luis Torres',   id:'CX00501',camp:'Aplazo', puesto:'Supervisor de Operaciones',ingreso:'2024-08-01',shift:'07:30-17:30',salary:28000},
   manager:    {label:'Manager',       av:'PR',name:'Pedro Ramírez', id:'CX00503',camp:'iForex', puesto:'Sr Operations Manager',   ingreso:'2023-11-20',shift:'09:00-18:00',salary:42000},
+  workforce:  {label:'Workforce',     av:'LM',name:'Luis Morales',  id:'CX00214',camp:'Admin',  puesto:'Jr Workforce Manager',    ingreso:'2024-11-25',shift:'10:00-19:00',salary:21600},
   people:     {label:'People',        av:'SG',name:'Sofía González',id:'CX00901',camp:'Admin',  puesto:'People',                  ingreso:'2024-01-10',shift:'09:00-18:00',salary:35000},
   head_people:{label:'Head of People',av:'HQ',name:'Héctor Quezada',id:'CX00001',camp:'Admin',  puesto:'Head of People',          ingreso:'2023-06-01',shift:'09:00-18:00',salary:65000},
   ceo:        {label:'CEO',           av:'CE',name:'Carlos Elizondo',id:'CX00002',camp:'Admin', puesto:'CEO',                     ingreso:'2022-01-01',shift:'09:00-18:00',salary:120000},
 };
 const MODULE_INFO={
   asistencia:{icon:'👤',label:'Asistencia'},nomina:{icon:'💰',label:'Nómina'},
-  qa:{icon:'⭐',label:'QA'},tickets:{icon:'🎫',label:'Tickets HR'},
+  tickets:{icon:'🎫',label:'Tickets HR'},
   permutas:{icon:'🔄',label:'Permutas'},vacaciones:{icon:'🏖️',label:'Vacaciones'},
   disciplinario:{icon:'⚠️',label:'Disciplinario'},equipo:{icon:'👥',label:'Equipo'},
 };
@@ -2111,7 +2111,7 @@ async function _a_cargarDatos() {
     }
 
     // 3. Equipo del supervisor (hoy)
-    if (['supervisor','manager','people','head_people'].includes(currentRole)) {
+    if (['supervisor','manager','people','head_people','workforce'].includes(currentRole)) {
       const { data: emps } = await _a_sb
         .from('employees')
         .select('id, full_name, campaign_id, shift_start, shift_end, shift_hours, supervisor_id')
@@ -2983,6 +2983,7 @@ function _a_render(){
   if(currentRole==='agent') c.innerHTML=_a_renderAgent();
   else if(currentRole==='supervisor') c.innerHTML=_a_renderSupervisor();
   else if(currentRole==='manager') c.innerHTML=_a_renderManager();
+  else if(currentRole==='workforce') c.innerHTML=_a_renderManager();
   else if(currentRole==='people') c.innerHTML=_a_renderPeople();
   else if(currentRole==='ceo') c.innerHTML=_a_renderCEO();
   else c.innerHTML=_a_renderHeadPeople();
@@ -4613,7 +4614,6 @@ async function _n_cargarDatos() {
       .order('period_start', { ascending: false })
       .limit(12);
     if (e1) throw e1;
-
     _n_PERIODOS = (periodos || []).map(p => ({
       id:              p.id,
       nombre:          p.period_name,
@@ -4670,7 +4670,7 @@ async function _n_cargarDatos() {
 
     return true;
   } catch(err) {
-    console.error('Error cargando nómina:', err);
+    console.error('[Nómina] Error:', err);
     return false;
   }
 }
@@ -4787,7 +4787,7 @@ async function _n_setPeriodo(id){
 
 // ── RENDER PRINCIPAL ───────────────────────────────────────────────────────
 function _n_render(){
-  const c=document.getElementById('content');
+const c=document.getElementById('content');
   if(_n_cargando){
     c.innerHTML=`<div style="text-align:center;padding:60px;color:#94A3B8"><div style="width:36px;height:36px;border:3px solid #E2E8F0;border-top-color:#62D3F5;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px"></div>Cargando nómina...</div>`;
     return;
@@ -4856,7 +4856,15 @@ function _n_renderSupervisor(){
 // ─────────────────────────────────────────────────────────────
 function _n_renderManager(){
   const p = _n_PERIODOS.find(x=>x.id===_n_periodoActivo);
-  if(!p) return `${roleSwitcher()}<div style="text-align:center;padding:60px;color:#94A3B8"><p>Cargando nómina...</p></div>`;
+  if(!p) {
+    const canCreate = ['head_people','people','manager'].includes(currentRole);
+    return roleSwitcher() + `<div style="text-align:center;padding:80px 20px;color:#94A3B8">
+      <div style="font-size:40px;margin-bottom:16px">💰</div>
+      <div style="font-size:16px;font-weight:700;color:#0F172A;margin-bottom:8px">Sin períodos de nómina</div>
+      <div style="font-size:13px;margin-bottom:24px">No hay períodos creados todavía.</div>
+      ${canCreate ? '<button onclick="_n_abrirNuevoPeriodo()" style="padding:12px 24px;background:#0F172A;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--f)">+ Crear primer período</button>' : ''}
+    </div>`;
+  }
   const SUPS_LIST = [
     {id:'CX00501',name:'Luis Torres',   camp:'Aplazo',   agentes:_n_AGENTES.filter(a=>a.sup==='CX00501')},
     {id:'CX00503',name:'Pedro Ramírez', camp:'iForex',   agentes:_n_AGENTES.filter(a=>a.sup==='CX00503')},
@@ -4903,7 +4911,15 @@ function _n_renderManager(){
 // ─────────────────────────────────────────────────────────────
 function _n_renderPeopleHead(){
   const p = _n_PERIODOS.find(x=>x.id===_n_periodoActivo);
-  if(!p) return `${roleSwitcher()}<div style="text-align:center;padding:60px;color:#94A3B8"><p>Cargando nómina...</p></div>`;
+  if(!p) {
+    const canCreate = ['head_people','people','manager'].includes(currentRole);
+    return roleSwitcher() + `<div style="text-align:center;padding:80px 20px;color:#94A3B8">
+      <div style="font-size:40px;margin-bottom:16px">💰</div>
+      <div style="font-size:16px;font-weight:700;color:#0F172A;margin-bottom:8px">Sin períodos de nómina</div>
+      <div style="font-size:13px;margin-bottom:24px">No hay períodos creados todavía.</div>
+      ${canCreate ? '<button onclick="_n_abrirNuevoPeriodo()" style="padding:12px 24px;background:#0F172A;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--f)">+ Crear primer período</button>' : ''}
+    </div>`;
+  }
   const lineas = _n_AGENTES.map(a=>({a, l:_n_calcLinea(a,p)}));
   const totalBruto   = lineas.reduce((s,{l})=>s+l.total_bruto,0);
   const totalAjustes = lineas.reduce((s,{l})=>s+l.adj,0);
@@ -5000,7 +5016,15 @@ function _n_renderPeopleHead(){
 // ─────────────────────────────────────────────────────────────
 function _n_renderCEO(){
   const p    = _n_PERIODOS.find(x=>x.id===_n_periodoActivo);
-  if(!p) return `${roleSwitcher()}<div style="text-align:center;padding:60px;color:#94A3B8"><p>Cargando nómina...</p></div>`;
+  if(!p) {
+    const canCreate = ['head_people','people','manager'].includes(currentRole);
+    return roleSwitcher() + `<div style="text-align:center;padding:80px 20px;color:#94A3B8">
+      <div style="font-size:40px;margin-bottom:16px">💰</div>
+      <div style="font-size:16px;font-weight:700;color:#0F172A;margin-bottom:8px">Sin períodos de nómina</div>
+      <div style="font-size:13px;margin-bottom:24px">No hay períodos creados todavía.</div>
+      ${canCreate ? '<button onclick="_n_abrirNuevoPeriodo()" style="padding:12px 24px;background:#0F172A;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--f)">+ Crear primer período</button>' : ''}
+    </div>`;
+  }
   const pAnt = _n_PERIODOS.find(x=>x.id!==_n_periodoActivo && (x.status==='closed'||x.status==='review'));
   const lineas    = _n_AGENTES.map(a=>({a, l:_n_calcLinea(a,p)}));
   const totalNeto = lineas.reduce((s,{l})=>s+l.total_neto,0);
@@ -5375,18 +5399,36 @@ function _n_previewProyectados(){
     : `<span style="color:#16A34A">Sin días proyectados — la fecha de pago coincide con el fin del periodo.</span>`;
 }
 
-function _n_crearPeriodo(){
-  const nombre = document.getElementById('np-nombre')?.value;
+async function _n_crearPeriodo(){
+  const nombre = document.getElementById('np-nombre')?.value?.trim();
   const inicio = document.getElementById('np-inicio')?.value;
   const corte  = document.getElementById('np-corte')?.value;
   const pago   = document.getElementById('np-pago')?.value;
   if(!nombre||!inicio||!corte||!pago){ alert('Completa todos los campos'); return; }
+  const ro = ROLES[currentRole];
+
+  // Guardar en Supabase
+  const { data, error } = await _n_sb.from('payroll_periods').insert({
+    period_name:  nombre,
+    period_start: inicio,
+    period_end:   corte,
+    payment_date: pago,
+    status:       'open',
+  }).select().single();
+
+  if (error) { alert('Error al crear período: ' + error.message); return; }
+
+  // Agregar a estado local
   const newP = {
-    id: 'NOM-'+Date.now(),
-    nombre, fecha_inicio:inicio, fecha_corte:corte, fecha_pago:pago,
-    dias_proyectados: _n_calcDiasProyectados(pago),
-    status:'open', total_bruto:0, total_ajustes:0, total_neto:0,
-    created_by: ROLES[currentRole].name,
+    id:              data.id,
+    nombre:          data.period_name,
+    fecha_inicio:    data.period_start,
+    fecha_corte:     data.period_end,
+    fecha_pago:      data.payment_date,
+    dias_proyectados: _n_calcDiasProyectados(data.payment_date),
+    status:          'open',
+    total_bruto:     0, total_ajustes:0, total_neto:0,
+    created_by:      ro.name,
   };
   _n_PERIODOS.unshift(newP);
   _n_periodoActivo = newP.id;
@@ -5395,158 +5437,1966 @@ function _n_crearPeriodo(){
 }
 
 
-
-
-
-// ══ QA ══
-const _q_SB_URL = 'https://kpuqabxmpavxgbzxzlng.supabase.co';
-const _q_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwdXFhYnhtcGF2eGdienh6bG5nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2OTk1NzAsImV4cCI6MjA4MDI3NTU3MH0.CoB4NA6Z8qtTrRzvIqfP-hm3T1m24WpRNI1Xc74all8';
-const _q_sb = supabase.createClient(_q_SB_URL, _q_SB_KEY);
-let _q_activeTab = 'desempeno';
-
-function _q_tabsForRole(role) {
-  const all = [
-    { id:'desempeno', label:'⭐ Mi Desempeño',  roles:['agent','supervisor','manager','people','head_people','ceo'] },
-    { id:'dashboard', label:'📊 Dashboard',      roles:['supervisor','manager','people','head_people','ceo'] },
-    { id:'manager',   label:'🛡️ Manager Panel',  roles:['manager','people','head_people','ceo'] },
-    { id:'evalform',  label:'📝 Eval Form',       roles:['supervisor','manager','people','head_people','ceo'] },
-  ];
-  return all.filter(function(t){ return t.roles.includes(role); });
-}
-
-function _q_render() {
-  const c = document.getElementById('content');
-  if (!c) return;
-  const tabs = _q_tabsForRole(currentRole);
-  if (!tabs.find(function(t){ return t.id === _q_activeTab; })) {
-    _q_activeTab = tabs[0] ? tabs[0].id : 'desempeno';
-  }
-  let tabBtns = '';
-  tabs.forEach(function(t) {
-    const active = _q_activeTab === t.id;
-    tabBtns += '<button id="qa-tab-btn-' + t.id + '" onclick="_q_switchTab(\'' + t.id + '\')" style="padding:9px 18px;border:none;border-bottom:2px solid ' + (active?'#0F172A':'transparent') + ';margin-bottom:-2px;font-size:12px;font-weight:600;font-family:var(--f);cursor:pointer;background:transparent;color:' + (active?'#0F172A':'#94A3B8') + '">' + t.label + '</button>';
+window['_init_asistencia']=function(){
+  _a_cargando=true; _a_render();
+  _a_cargarDatos().then(ok=>{
+    _a_cargando=false; _a_render();
+    if(ok){ _a_checkAutoRetardos(); _a_checkAutoFaltas(); }
   });
-  c.innerHTML = '<div style="display:flex;flex-direction:column;height:100%"><div style="display:flex;gap:2px;padding:14px 16px 0;border-bottom:2px solid #E2E8F0;background:#fff;flex-shrink:0">' + tabBtns + '</div><div id="qa-tab-content" style="flex:1;overflow:auto;background:#F8FAFC;padding:16px"></div></div>';
-  _q_loadTab(_q_activeTab);
-}
+};
+window['_rerender_asistencia']=function(){ if(typeof _a_render==='function')_a_render(); };
 
-function _q_switchTab(tabId) {
-  _q_activeTab = tabId;
-  document.querySelectorAll('[id^="qa-tab-btn-"]').forEach(function(btn) {
-    const active = btn.id === 'qa-tab-btn-' + tabId;
-    btn.style.borderBottomColor = active ? '#0F172A' : 'transparent';
-    btn.style.color = active ? '#0F172A' : '#94A3B8';
+window['_init_nomina']=function(){
+  _n_cargando=true; _n_render();
+  _n_cargarDatos().then(ok=>{
+    _n_cargando=false; _n_render();
   });
-  _q_loadTab(tabId);
-}
+};
+window['_rerender_nomina']=function(){ if(typeof _n_render==='function')_n_render(); };
 
-function _q_injectStyle(id, css) {
-  let el = document.getElementById(id);
-  if (!el) { el = document.createElement('style'); el.id = id; document.head.appendChild(el); }
-  el.textContent = css;
-}
+// ══ TICKETS HR ══════════════════════════════════════════════════════
+const _t_SB_URL = 'https://kpuqabxmpavxgbzxzlng.supabase.co';
+const _t_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwdXFhYnhtcGF2eGdienh6bG5nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2OTk1NzAsImV4cCI6MjA4MDI3NTU3MH0.CoB4NA6Z8qtTrRzvIqfP-hm3T1m24WpRNI1Xc74all8';
+const _t_sb = supabase.createClient(_t_SB_URL, _t_SB_KEY);
 
-async function _q_loadTab(tabId) {
-  const container = document.getElementById('qa-tab-content');
-  if (!container) return;
-  container.innerHTML = '<div style="text-align:center;padding:50px;color:#94A3B8"><div style="width:32px;height:32px;border:3px solid #E2E8F0;border-top-color:#62D3F5;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px"></div>Cargando...</div>';
+let _t_TICKETS = [];
+let _t_cargando = false;
+let _t_vistaTickets = 'mis';
+let _t_detalleId = null;
+
+async function _t_cargarTickets() {
   try {
-    if (tabId === 'desempeno') await _q_loadDesempeno(container);
-    else if (tabId === 'dashboard') await _q_loadDashboard(container);
-    else if (tabId === 'manager') await _q_loadManagerPanel(container);
-    else if (tabId === 'evalform') await _q_loadEvalForm(container);
-  } catch(e) {
-    console.error('[QA] Error en tab ' + tabId, e);
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:#DC2626">Error: ' + e.message + '</div>';
-  }
+    const ro = ROLES[currentRole];
+    let query = _t_sb.from('hr_tickets').select('*').order('created_at', {ascending:false});
+    if (currentRole === 'agent') query = query.eq('employee_id', ro.id);
+    const { data, error } = await query;
+    if (error) throw error;
+    _t_TICKETS = data || [];
+    return true;
+  } catch(e) { console.error('Error tickets:', e); return false; }
 }
 
-async function _q_loadDesempeno(container) {
+function _t_statusBadge(s) {
+  const map = {open:'🟡 Abierto', in_progress:'🔵 En proceso', resolved:'🟢 Resuelto', closed:'⚫ Cerrado'};
+  return `<span style="font-size:11px;padding:3px 8px;border-radius:99px;background:#F1F5F9;color:#475569">${map[s]||s}</span>`;
+}
+
+function _t_prioColor(p) {
+  return p==='high'?'#DC2626':p==='medium'?'#D97706':'#64748B';
+}
+
+function _t_render() {
+  updateSidebarUser();
+  const c = document.getElementById('content');
+  if (_t_cargando) {
+    c.innerHTML = '<div style="text-align:center;padding:60px;color:#94A3B8"><div style="width:32px;height:32px;border:3px solid #E2E8F0;border-top-color:#62D3F5;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px"></div>Cargando tickets...</div>';
+    return;
+  }
+  if (_t_detalleId) { _t_renderDetalle(_t_detalleId); return; }
+
   const ro = ROLES[currentRole];
-  const empId = ro ? ro.id : null;
-  if (!empId) {
-    container.innerHTML = '<div style="text-align:center;padding:60px;color:#94A3B8">Sin ID de empleado</div>';
-    return;
-  }
-  const { data, error } = await _q_sb.from('qa_v_evaluations_base')
-    .select('*').eq('agent_identifier', empId)
-    .order('interaction_date', {ascending:false}).limit(100);
-  if (error) {
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:#DC2626">Error: ' + error.message + '</div>';
-    return;
-  }
-  const evals = data || [];
-  if (!evals.length) {
-    container.innerHTML = '<div style="text-align:center;padding:60px;color:#94A3B8"><div style="font-size:40px;margin-bottom:12px">⭐</div><p style="font-weight:600">Sin evaluaciones registradas</p></div>';
-    return;
-  }
-  const avg = evals.reduce(function(s,e){ return s + (e.score_final||0); }, 0) / evals.length;
+  const isSup = ['supervisor','manager','people','head_people'].includes(currentRole);
+  const misTick = _t_TICKETS.filter(t => t.employee_id === ro.id);
+  const lista = (_t_vistaTickets === 'todos' && isSup) ? _t_TICKETS : misTick;
+
   let rows = '';
-  evals.forEach(function(e) {
-    const sc = e.score_final || 0;
-    const color = sc >= 85 ? '#16A34A' : sc >= 70 ? '#D97706' : '#DC2626';
-    rows += '<tr style="border-top:1px solid #F1F5F9"><td style="padding:10px 14px;font-size:13px">' + (e.interaction_date||'—') + '</td><td style="padding:10px 14px;font-size:13px">' + (e.campaign_name||e.campaign_key||'—') + '</td><td style="padding:10px 14px;font-size:13px;font-weight:700;color:' + color + '">' + sc.toFixed(1) + '%</td><td style="padding:10px 14px;font-size:13px;color:#64748B">' + (e.evaluator_name||'—') + '</td><td style="padding:10px 14px;font-size:13px;color:#64748B">' + (e.contact_type||'—') + '</td></tr>';
+  lista.forEach(t => {
+    rows += `<div onclick="_t_detalleId='${t.id}';_t_render()" style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 2px 8px rgba(15,23,42,.08)'" onmouseout="this.style.boxShadow=''">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <div style="font-weight:700;font-size:13px">${t.type||'Ticket'}${t.subtype?' · '+t.subtype:''}</div>
+        <div style="font-size:11px;font-weight:600;color:${_t_prioColor(t.priority)}">${t.priority||''}</div>
+      </div>
+      <div style="font-size:12px;color:#64748B;margin-bottom:8px">${(t.description||'').slice(0,120)}</div>
+      <div style="display:flex;gap:12px;align-items:center;font-size:11px;color:#94A3B8">
+        ${_t_statusBadge(t.status)}
+        <span>📅 ${(t.created_at||'').slice(0,10)}</span>
+        ${t.due_at?`<span>⏰ ${t.due_at.slice(0,10)}</span>`:''}
+      </div>
+    </div>`;
   });
-  container.innerHTML = '<div style="max-width:960px;margin:0 auto"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px"><div style="background:#fff;border-radius:12px;padding:18px;border:1px solid #E2E8F0"><div style="font-size:28px;font-weight:800;color:' + (avg>=85?'#16A34A':avg>=70?'#D97706':'#DC2626') + '">' + avg.toFixed(1) + '%</div><div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:.5px;margin-top:4px">Promedio general</div></div><div style="background:#fff;border-radius:12px;padding:18px;border:1px solid #E2E8F0"><div style="font-size:28px;font-weight:800;color:#0F172A">' + evals.length + '</div><div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:.5px;margin-top:4px">Evaluaciones</div></div><div style="background:#fff;border-radius:12px;padding:18px;border:1px solid #E2E8F0"><div style="font-size:28px;font-weight:800;color:' + (evals.filter(function(e){return e.critical_error_triggered;}).length>0?'#DC2626':'#16A34A') + '">' + evals.filter(function(e){return e.critical_error_triggered;}).length + '</div><div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:.5px;margin-top:4px">Errores críticos</div></div></div><div style="background:#fff;border-radius:12px;border:1px solid #E2E8F0;overflow:hidden"><table style="width:100%;border-collapse:collapse"><thead style="background:#F8FAFC"><tr><th style="padding:10px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase">Fecha</th><th style="padding:10px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase">Campaña</th><th style="padding:10px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase">Score</th><th style="padding:10px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase">Evaluador</th><th style="padding:10px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase">Tipo</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+
+  c.innerHTML = `<div style="max-width:800px;margin:0 auto">
+    ${isSup?`<div style="display:flex;gap:8px;margin-bottom:16px">
+      <button onclick="_t_vistaTickets='mis';_t_render()" style="padding:7px 16px;border:none;border-radius:8px;font-size:12px;font-weight:600;font-family:var(--f);cursor:pointer;background:${_t_vistaTickets==='mis'?'#0F172A':'#F1F5F9'};color:${_t_vistaTickets==='mis'?'#fff':'#64748B'}">Mis tickets (${misTick.length})</button>
+      <button onclick="_t_vistaTickets='todos';_t_render()" style="padding:7px 16px;border:none;border-radius:8px;font-size:12px;font-weight:600;font-family:var(--f);cursor:pointer;background:${_t_vistaTickets==='todos'?'#0F172A':'#F1F5F9'};color:${_t_vistaTickets==='todos'?'#fff':'#64748B'}">Todos (${_t_TICKETS.length})</button>
+    </div>`:''}
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:13px;color:#64748B">${lista.length} ticket${lista.length!==1?'s':''}</div>
+      <button onclick="_t_abrirNuevo()" style="padding:8px 16px;background:#0F172A;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ Nuevo ticket</button>
+    </div>
+    ${lista.length?rows:'<div style="text-align:center;padding:50px;color:#94A3B8">Sin tickets registrados</div>'}
+  </div>`;
 }
 
-async function _q_loadDashboard(container) {
-  container.innerHTML = '<div style="text-align:center;padding:60px;color:#94A3B8"><div style="font-size:40px;margin-bottom:12px">📊</div><p style="font-weight:600;margin-bottom:8px">Dashboard QA</p><p style="font-size:12px">En construcción</p></div>';
+function _t_renderDetalle(id) {
+  const t = _t_TICKETS.find(x => x.id === id);
+  if (!t) { _t_detalleId = null; _t_render(); return; }
+  const c = document.getElementById('content');
+  const isSup = ['supervisor','manager','people','head_people'].includes(currentRole);
+  c.innerHTML = `<div style="max-width:700px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+      <button onclick="_t_detalleId=null;_t_render()" style="border:1px solid #E2E8F0;border-radius:8px;padding:7px 14px;background:#fff;cursor:pointer;font-size:12px;font-weight:600">← Volver</button>
+      <div style="font-size:15px;font-weight:700">${t.type||'Ticket'}${t.subtype?' · '+t.subtype:''}</div>
+      ${_t_statusBadge(t.status)}
+    </div>
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:20px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+        ${[['Empleado',t.employee_id],['Prioridad',`<span style="color:${_t_prioColor(t.priority)};font-weight:700">${t.priority||'—'}</span>`],
+           ['Creado',(t.created_at||'—').slice(0,10)],['Fecha límite',t.due_at?t.due_at.slice(0,10):'—']].map(([l,v])=>
+          `<div><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${l}</div><div style="font-size:13px">${v}</div></div>`).join('')}
+      </div>
+      <div style="margin-bottom:16px"><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Descripción</div>
+      <div style="font-size:13px;color:#334155;line-height:1.6">${t.description||'—'}</div></div>
+      ${t.resolution_notes?`<div><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Resolución</div><div style="font-size:13px;color:#334155">${t.resolution_notes}</div></div>`:''}
+      ${isSup && t.status!=='resolved'?`<div style="margin-top:16px;display:flex;gap:8px">
+        <button onclick="_t_resolverTicket('${t.id}')" style="padding:8px 16px;background:#DCFCE7;color:#16A34A;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✅ Marcar resuelto</button>
+      </div>`:''}
+    </div>
+  </div>`;
 }
 
-async function _q_loadManagerPanel(container) {
-  container.innerHTML = '<div style="text-align:center;padding:60px;color:#94A3B8"><div style="font-size:40px;margin-bottom:12px">🛡️</div><p style="font-weight:600;margin-bottom:8px">Manager Panel</p><p style="font-size:12px">En construcción</p></div>';
+function _t_abrirNuevo() {
+  document.getElementById('modalTitle').textContent = 'Nuevo Ticket HR';
+  document.getElementById('modalSub').textContent = '';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-section">
+      <label class="modal-label">TIPO</label>
+      <select id="nt-tipo" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+        <option value="vacaciones">Vacaciones</option>
+        <option value="permiso">Permiso</option>
+        <option value="nomina">Nómina</option>
+        <option value="equipo">Equipo / Material</option>
+        <option value="otro">Otro</option>
+      </select>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">DESCRIPCIÓN</label>
+      <textarea id="nt-desc" rows="4" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f);resize:vertical" placeholder="Describe tu solicitud..."></textarea>
+    </div>`;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+    <button class="btn-primary" onclick="_t_crearTicket()">Enviar</button>`;
+  document.getElementById('modalBackdrop').style.display = 'flex';
 }
 
-async function _q_loadEvalForm(container) {
-  container.innerHTML = '<div style="text-align:center;padding:60px;color:#94A3B8"><div style="font-size:40px;margin-bottom:12px">📝</div><p style="font-weight:600;margin-bottom:8px">Evaluation Form</p><p style="font-size:12px">En construcción</p></div>';
+async function _t_crearTicket() {
+  const tipo = document.getElementById('nt-tipo')?.value;
+  const desc = document.getElementById('nt-desc')?.value?.trim();
+  if (!desc) { alert('Escribe una descripción'); return; }
+  const ro = ROLES[currentRole];
+  const id = 'TKT-' + Date.now();
+  const { error } = await _t_sb.from('hr_tickets').insert({
+    id, employee_id: ro.id, type: tipo, description: desc,
+    status: 'open', priority: 'medium', sla_hours: 48,
+    due_at: new Date(Date.now() + 48*3600000).toISOString(),
+  });
+  if (error) { alert('Error: ' + error.message); return; }
+  closeModal();
+  _t_cargando = true; _t_render();
+  await _t_cargarTickets();
+  _t_cargando = false; _t_render();
 }
 
-window['_init_qa'] = function() { _q_render(); };
-window['_rerender_qa'] = function() { _q_render(); };
+async function _t_resolverTicket(id) {
+  document.getElementById('modalTitle').textContent = 'Resolver ticket';
+  document.getElementById('modalSub').textContent = '';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-section">
+      <label class="modal-label">NOTAS DE RESOLUCIÓN</label>
+      <textarea id="tr-notas" rows="3" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)" placeholder="Describe cómo se resolvió..."></textarea>
+    </div>`;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+    <button class="btn-primary" onclick="_t_confirmarResolver('${id}')">Confirmar</button>`;
+  document.getElementById('modalBackdrop').style.display = 'flex';
+}
+
+async function _t_confirmarResolver(id) {
+  const notas = document.getElementById('tr-notas')?.value || '';
+  const { error } = await _t_sb.from('hr_tickets').update({
+    status: 'resolved', resolution_notes: notas,
+    resolved_at: new Date().toISOString(),
+  }).eq('id', id);
+  if (error) { alert('Error: ' + error.message); return; }
+  closeModal();
+  _t_detalleId = null;
+  await _t_cargarTickets(); _t_render();
+}
+
+// ══ PERMUTAS ════════════════════════════════════════════════════════
+const _p_SB_URL = 'https://kpuqabxmpavxgbzxzlng.supabase.co';
+const _p_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwdXFhYnhtcGF2eGdienh6bG5nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2OTk1NzAsImV4cCI6MjA4MDI3NTU3MH0.CoB4NA6Z8qtTrRzvIqfP-hm3T1m24WpRNI1Xc74all8';
+const _p_sb = supabase.createClient(_p_SB_URL, _p_SB_KEY);
+
+let _p_SWAPS = [];
+let _p_EMPLEADOS = [];
+let _p_cargando = false;
+
+async function _p_cargarDatos() {
+  try {
+    const { data: swaps, error: e1 } = await _p_sb.from('swaps').select('*').order('created_at', {ascending:false});
+    if (e1) throw e1;
+    _p_SWAPS = swaps || [];
+    const { data: emps, error: e2 } = await _p_sb.from('employees')
+      .select('id,full_name,campaign_id,shift_start,shift_end').eq('status','active').order('full_name');
+    if (e2) throw e2;
+    _p_EMPLEADOS = emps || [];
+    return true;
+  } catch(e) { console.error('Error permutas:', e); return false; }
+}
+
+function _p_statusBadge(s) {
+  const cfg = {
+    pending:  {bg:'#FEF9C3',color:'#854D0E',label:'Pendiente'},
+    approved: {bg:'#DCFCE7',color:'#166534',label:'Aprobado'},
+    rejected: {bg:'#FEE2E2',color:'#991B1B',label:'Rechazado'},
+    cancelled:{bg:'#F1F5F9',color:'#475569',label:'Cancelado'},
+  };
+  const c = cfg[s] || {bg:'#F1F5F9',color:'#475569',label:s};
+  return `<span style="font-size:11px;padding:3px 8px;border-radius:99px;background:${c.bg};color:${c.color};font-weight:600">${c.label}</span>`;
+}
+
+function _p_render() {
+  updateSidebarUser();
+  const c = document.getElementById('content');
+  if (_p_cargando) {
+    c.innerHTML = '<div style="text-align:center;padding:60px;color:#94A3B8"><div style="width:32px;height:32px;border:3px solid #E2E8F0;border-top-color:#62D3F5;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px"></div>Cargando permutas...</div>';
+    return;
+  }
+  const ro = ROLES[currentRole];
+  const isSup = ['supervisor','manager','people','head_people'].includes(currentRole);
+  const misSwaps = _p_SWAPS.filter(s => s.requester_id === ro.id || s.swap_with_id === ro.id);
+  const pendApproval = isSup ? _p_SWAPS.filter(s => s.status === 'pending') : [];
+
+  let pendRows = '';
+  pendApproval.forEach(s => {
+    const req  = _p_EMPLEADOS.find(e => e.id === s.requester_id);
+    const with_ = _p_EMPLEADOS.find(e => e.id === s.swap_with_id);
+    pendRows += `<tr>
+      <td style="padding:10px 14px;font-size:13px;font-weight:600">${req?req.full_name:s.requester_id}</td>
+      <td style="padding:10px 14px;font-size:13px;color:#64748B">↔ ${with_?with_.full_name:s.swap_with_id}</td>
+      <td style="padding:10px 14px;font-size:13px">${s.work_date||'—'}</td>
+      <td style="padding:10px 14px;font-size:13px">${s.swap_type==='descanso'?'🔄 Descanso':'📅 Turno'}</td>
+      <td style="padding:10px 14px">
+        <button onclick="_p_aprobar('${s.id}')" style="font-size:11px;padding:4px 10px;border:none;border-radius:6px;background:#DCFCE7;color:#166534;cursor:pointer;font-weight:600;margin-right:6px">✅ Aprobar</button>
+        <button onclick="_p_rechazar('${s.id}')" style="font-size:11px;padding:4px 10px;border:none;border-radius:6px;background:#FEE2E2;color:#991B1B;cursor:pointer;font-weight:600">❌ Rechazar</button>
+      </td>
+    </tr>`;
+  });
+
+  let rows = '';
+  misSwaps.forEach(s => {
+    const esReq = s.requester_id === ro.id;
+    const other = _p_EMPLEADOS.find(e => e.id === (esReq ? s.swap_with_id : s.requester_id));
+    rows += `<tr>
+      <td style="padding:10px 14px;font-size:13px">${other?other.full_name:'—'}</td>
+      <td style="padding:10px 14px;font-size:13px">${s.swap_type==='descanso'?'🔄 Descanso':'📅 Turno'}</td>
+      <td style="padding:10px 14px;font-size:13px">${s.work_date||'—'}</td>
+      <td style="padding:10px 14px;font-size:13px">${s.rest_date||'—'}</td>
+      <td style="padding:10px 14px">${_p_statusBadge(s.status)}</td>
+      ${esReq && s.status==='pending'?`<td style="padding:10px 14px"><button onclick="_p_cancelar('${s.id}')" style="font-size:11px;padding:4px 10px;border:1px solid #FCA5A5;border-radius:6px;background:#FEF2F2;color:#DC2626;cursor:pointer">Cancelar</button></td>`:'<td></td>'}
+    </tr>`;
+  });
+
+  c.innerHTML = `<div style="max-width:900px;margin:0 auto">
+    ${pendApproval.length?`<div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:16px;margin-bottom:20px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:12px">⏳ Pendientes de aprobación (${pendApproval.length})</div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:600px">
+        <thead style="background:#F8FAFC"><tr>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Solicitante</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Con</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Fecha trabajo</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Tipo</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Acción</th>
+        </tr></thead><tbody>${pendRows}</tbody>
+      </table></div>
+    </div>`:''}
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-weight:700;font-size:13px">Mis permutas</div>
+        <button onclick="_p_abrirNueva()" style="padding:7px 14px;background:#0F172A;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ Solicitar permuta</button>
+      </div>
+      ${misSwaps.length?`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:600px">
+        <thead style="background:#F8FAFC"><tr>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Compañero</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Tipo</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Fecha trabajo</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Fecha descanso</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Status</th>
+          <th></th>
+        </tr></thead><tbody>${rows}</tbody>
+      </table></div>`:'<div style="text-align:center;padding:30px;color:#94A3B8">Sin permutas registradas</div>'}
+    </div>
+  </div>`;
+}
+
+function _p_abrirNueva() {
+  const opts = _p_EMPLEADOS.map(e =>
+    `<option value="${e.id}">${e.full_name}${e.campaign_id?' ('+e.campaign_id+')':''}</option>`).join('');
+  document.getElementById('modalTitle').textContent = 'Solicitar Permuta';
+  document.getElementById('modalSub').textContent = '';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-section">
+      <label class="modal-label">COMPAÑERO</label>
+      <select id="p-with" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+        <option value="">Selecciona un compañero...</option>${opts}
+      </select>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">TIPO DE PERMUTA</label>
+      <select id="p-type" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+        <option value="descanso">Intercambio de descanso</option>
+        <option value="turno">Intercambio de turno</option>
+      </select>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">MI FECHA DE TRABAJO</label>
+      <input type="date" id="p-work" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">MI FECHA DE DESCANSO (opcional)</label>
+      <input type="date" id="p-rest" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+    </div>`;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+    <button class="btn-primary" onclick="_p_crearPermuta()">Solicitar</button>`;
+  document.getElementById('modalBackdrop').style.display = 'flex';
+}
+
+async function _p_crearPermuta() {
+  const withId = document.getElementById('p-with')?.value;
+  const type   = document.getElementById('p-type')?.value;
+  const work   = document.getElementById('p-work')?.value;
+  const rest   = document.getElementById('p-rest')?.value;
+  if (!withId || !work) { alert('Selecciona compañero y fecha de trabajo'); return; }
+  const ro = ROLES[currentRole];
+  const { error } = await _p_sb.from('swaps').insert({
+    id: crypto.randomUUID(), requester_id: ro.id, swap_with_id: withId,
+    swap_type: type, work_date: work, rest_date: rest||null, status: 'pending',
+  });
+  if (error) { alert('Error: ' + error.message); return; }
+  closeModal();
+  _p_cargando = true; _p_render();
+  await _p_cargarDatos();
+  _p_cargando = false; _p_render();
+}
+
+async function _p_aprobar(id) {
+  const ro = ROLES[currentRole];
+  await _p_sb.from('swaps').update({status:'approved', approved_by:ro.id, approved_at:new Date().toISOString()}).eq('id',id);
+  await _p_cargarDatos(); _p_render();
+}
+async function _p_rechazar(id) {
+  await _p_sb.from('swaps').update({status:'rejected'}).eq('id',id);
+  await _p_cargarDatos(); _p_render();
+}
+async function _p_cancelar(id) {
+  await _p_sb.from('swaps').update({status:'cancelled'}).eq('id',id);
+  await _p_cargarDatos(); _p_render();
+}
+
+// ══ VACACIONES ══════════════════════════════════════════════════════
+const _v_SB_URL = 'https://kpuqabxmpavxgbzxzlng.supabase.co';
+const _v_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwdXFhYnhtcGF2eGdienh6bG5nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2OTk1NzAsImV4cCI6MjA4MDI3NTU3MH0.CoB4NA6Z8qtTrRzvIqfP-hm3T1m24WpRNI1Xc74all8';
+const _v_sb = supabase.createClient(_v_SB_URL, _v_SB_KEY);
+
+let _v_AGENTES = [];
+let _v_SOLICITUDES = [];
+let _v_ENTITLEMENTS = [];
+let _v_cargando = false;
+
+async function _v_cargarDatos() {
+  try {
+    const { data: emps, error: e1 } = await _v_sb.from('employees')
+      .select('id,full_name,hire_date,campaign_id,supervisor_id').eq('status','active').order('full_name');
+    if (e1) throw e1;
+    _v_AGENTES = emps || [];
+    const { data: sols, error: e2 } = await _v_sb.from('vacation_requests')
+      .select('*').order('created_at', {ascending:false});
+    if (e2) throw e2;
+    _v_SOLICITUDES = sols || [];
+    const { data: ent } = await _v_sb.from('v_vacation_entitlement').select('*');
+    _v_ENTITLEMENTS = ent || [];
+    return true;
+  } catch(e) { console.error('Error vacaciones:', e); return false; }
+}
+
+function _v_diasPorAnio(anio) {
+  if (anio <= 0) return 0;
+  if (anio === 1) return 12; if (anio === 2) return 14;
+  if (anio === 3) return 16; if (anio === 4) return 18;
+  if (anio <= 9)  return 20; if (anio <= 14) return 22;
+  if (anio <= 19) return 24; if (anio <= 24) return 26;
+  return 28;
+}
+
+function _v_calcVacaciones(ingreso) {
+  if (!ingreso) return { aniosCompletos:0, periodos:[] };
+  const hoy = ymd(NOW);
+  const aniosCompletos = Math.floor(diffDays(ingreso, hoy) / 365);
+  if (aniosCompletos < 1) return { aniosCompletos:0, periodos:[] };
+  const periodos = [];
+  for (let y = 1; y <= aniosCompletos; y++) {
+    const aniversario = addYears(ingreso, y);
+    const vence = addMonths(aniversario, 6);
+    periodos.push({ anio:y, inicio:addYears(ingreso,y-1), aniversario, vence, dias:_v_diasPorAnio(y) });
+  }
+  return { aniosCompletos, periodos };
+}
+
+function _v_render() {
+  updateSidebarUser();
+  const c = document.getElementById('content');
+  if (_v_cargando) {
+    c.innerHTML = '<div style="text-align:center;padding:60px;color:#94A3B8"><div style="width:32px;height:32px;border:3px solid #E2E8F0;border-top-color:#62D3F5;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px"></div>Cargando vacaciones...</div>';
+    return;
+  }
+  if (_v_AGENTES.length === 0) {
+    c.innerHTML = '<div style="text-align:center;padding:60px;color:#DC2626"><div style="font-size:32px;margin-bottom:12px">⚠️</div><p style="font-weight:600">No se pudieron cargar los datos</p><button onclick="_v_cargarDatos().then(()=>_v_render())" style="margin-top:16px;padding:10px 20px;background:#0F172A;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">🔄 Reintentar</button></div>';
+    return;
+  }
+  if (['people','head_people'].includes(currentRole)) c.innerHTML = _v_renderPeople();
+  else if (['manager','supervisor'].includes(currentRole)) c.innerHTML = _v_renderPeople();
+  else c.innerHTML = _v_renderAgent();
+}
+
+function _v_renderAgent() {
+  const ro = ROLES[currentRole];
+  const empReal = _v_AGENTES.find(a => a.id === ro.id);
+  const ingreso = empReal?.hire_date || '';
+  const { aniosCompletos, periodos } = _v_calcVacaciones(ingreso);
+  const misSols = _v_SOLICITUDES.filter(s => s.employee_id === ro.id);
+  const entit = _v_ENTITLEMENTS.find(e => e.employee_id === ro.id);
+  const diasTotal = entit?.vacation_days_total || periodos.reduce((s,p)=>s+p.dias,0);
+  const diasUsados = entit?.vacation_days_used || misSols.filter(s=>s.status==='approved').reduce((s,sol)=>s+(sol.days_requested||0),0);
+  const diasDisp = entit?.vacation_days_available ?? Math.max(0, diasTotal - diasUsados);
+
+  let solRows = misSols.slice(0,20).map(s => {
+    const color = s.status==='approved'?'#16A34A':s.status==='rejected'?'#DC2626':'#D97706';
+    return `<tr style="border-top:1px solid #F1F5F9">
+      <td style="padding:9px 14px;font-size:13px">${s.start_date||'—'}</td>
+      <td style="padding:9px 14px;font-size:13px">${s.end_date||'—'}</td>
+      <td style="padding:9px 14px;font-size:13px">${s.days_requested||'—'} días</td>
+      <td style="padding:9px 14px;font-size:12px;font-weight:600;color:${color}">${s.status}</td>
+    </tr>`;
+  }).join('');
+
+  return `<div style="max-width:800px;margin:0 auto">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
+      <div style="background:#fff;border-radius:12px;padding:18px;border:1px solid #E2E8F0">
+        <div style="font-size:28px;font-weight:800;color:#0F172A">${diasTotal}</div>
+        <div style="font-size:11px;color:#64748B;text-transform:uppercase;margin-top:4px">Días correspondientes</div>
+      </div>
+      <div style="background:#fff;border-radius:12px;padding:18px;border:1px solid #E2E8F0">
+        <div style="font-size:28px;font-weight:800;color:#DC2626">${diasUsados}</div>
+        <div style="font-size:11px;color:#64748B;text-transform:uppercase;margin-top:4px">Días usados</div>
+      </div>
+      <div style="background:#fff;border-radius:12px;padding:18px;border:1px solid #E2E8F0">
+        <div style="font-size:28px;font-weight:800;color:#16A34A">${diasDisp}</div>
+        <div style="font-size:11px;color:#64748B;text-transform:uppercase;margin-top:4px">Disponibles</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-weight:700;font-size:13px">Mis solicitudes</div>
+        <button onclick="_v_abrirSolicitud()" style="padding:7px 14px;background:#0F172A;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ Solicitar vacaciones</button>
+      </div>
+      ${misSols.length?`<table style="width:100%;border-collapse:collapse">
+        <thead style="background:#F8FAFC"><tr>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Inicio</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Fin</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Días</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Status</th>
+        </tr></thead><tbody>${solRows}</tbody>
+      </table>`:'<div style="text-align:center;padding:30px;color:#94A3B8">Sin solicitudes registradas</div>'}
+    </div>
+    <div style="text-align:center;font-size:12px;color:#94A3B8;margin-top:12px">Antigüedad: ${aniosCompletos} año${aniosCompletos!==1?'s':''} · Ingreso: ${ingreso||'—'}</div>
+  </div>`;
+}
+
+function _v_renderPeople() {
+  const pendientes = _v_SOLICITUDES.filter(s => s.status === 'pending');
+  let pendRows = pendientes.map(s => {
+    const emp = _v_AGENTES.find(a => a.id === s.employee_id);
+    return `<tr style="border-top:1px solid #F1F5F9">
+      <td style="padding:10px 14px"><div style="font-size:13px;font-weight:600">${emp?emp.full_name:s.employee_id}</div></td>
+      <td style="padding:10px 14px;font-size:13px">${s.start_date||'—'}</td>
+      <td style="padding:10px 14px;font-size:13px">${s.end_date||'—'}</td>
+      <td style="padding:10px 14px;font-size:13px">${s.days_requested||'—'} días</td>
+      <td style="padding:10px 14px">
+        <button onclick="_v_aprobar('${s.id}')" style="font-size:11px;padding:4px 10px;border:none;border-radius:6px;background:#DCFCE7;color:#166534;cursor:pointer;font-weight:600;margin-right:6px">✅ Aprobar</button>
+        <button onclick="_v_rechazar('${s.id}')" style="font-size:11px;padding:4px 10px;border:none;border-radius:6px;background:#FEE2E2;color:#991B1B;cursor:pointer;font-weight:600">❌ Rechazar</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  let agRows = _v_AGENTES.map(a => {
+    const { aniosCompletos } = _v_calcVacaciones(a.hire_date);
+    const diasTotal = _v_diasPorAnio(aniosCompletos);
+    const entit = _v_ENTITLEMENTS.find(e => e.employee_id === a.id);
+    const usados = entit?.vacation_days_used ||
+      _v_SOLICITUDES.filter(s=>s.employee_id===a.id&&s.status==='approved').reduce((s,x)=>s+(x.days_requested||0),0);
+    const dispon = entit?.vacation_days_available ?? Math.max(0, diasTotal - usados);
+    return `<tr style="border-top:1px solid #F1F5F9">
+      <td style="padding:10px 14px"><div style="font-size:13px;font-weight:600">${a.full_name}</div><div style="font-size:11px;color:#94A3B8">${a.id}</div></td>
+      <td style="padding:10px 14px;font-size:13px;color:#64748B">${a.hire_date||'—'}</td>
+      <td style="padding:10px 14px;font-size:13px">${aniosCompletos} años</td>
+      <td style="padding:10px 14px;font-size:13px;font-weight:600">${diasTotal}</td>
+      <td style="padding:10px 14px;font-size:13px;color:#DC2626">${usados}</td>
+      <td style="padding:10px 14px;font-size:13px;color:#16A34A;font-weight:700">${dispon}</td>
+    </tr>`;
+  }).join('');
+
+  return `<div style="max-width:1000px;margin:0 auto">
+    ${pendientes.length?`<div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:16px;margin-bottom:20px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:12px">⏳ Pendientes de aprobación (${pendientes.length})</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead style="background:#F8FAFC"><tr>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Empleado</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Inicio</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Fin</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Días</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Acción</th>
+        </tr></thead><tbody>${pendRows}</tbody>
+      </table>
+    </div>`:''}
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:16px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:12px">Equipo · ${_v_AGENTES.length} empleados</div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:700px">
+        <thead style="background:#F8FAFC"><tr>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Empleado</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Ingreso</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Antigüedad</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Días totales</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Usados</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Disponibles</th>
+        </tr></thead><tbody>${agRows}</tbody>
+      </table></div>
+    </div>
+  </div>`;
+}
+
+function _v_abrirSolicitud() {
+  document.getElementById('modalTitle').textContent = 'Solicitar Vacaciones';
+  document.getElementById('modalSub').textContent = '';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-section">
+      <label class="modal-label">FECHA INICIO</label>
+      <input type="date" id="v-inicio" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">FECHA FIN</label>
+      <input type="date" id="v-fin" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">NOTAS (opcional)</label>
+      <textarea id="v-notas" rows="2" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"></textarea>
+    </div>`;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+    <button class="btn-primary" onclick="_v_crearSolicitud()">Solicitar</button>`;
+  document.getElementById('modalBackdrop').style.display = 'flex';
+}
+
+async function _v_crearSolicitud() {
+  const inicio = document.getElementById('v-inicio')?.value;
+  const fin    = document.getElementById('v-fin')?.value;
+  const notas  = document.getElementById('v-notas')?.value || '';
+  if (!inicio || !fin) { alert('Selecciona las fechas'); return; }
+  if (fin < inicio) { alert('La fecha fin debe ser posterior al inicio'); return; }
+  const days = Math.ceil((new Date(fin) - new Date(inicio)) / 86400000) + 1;
+  const ro = ROLES[currentRole];
+  const { error } = await _v_sb.from('vacation_requests').insert({
+    id: crypto.randomUUID(), employee_id: ro.id,
+    start_date: inicio, end_date: fin, days_requested: days,
+    status: 'pending', notes: notas || null,
+  });
+  if (error) { alert('Error: ' + error.message); return; }
+  closeModal();
+  _v_cargando = true; _v_render();
+  await _v_cargarDatos();
+  _v_cargando = false; _v_render();
+}
+
+async function _v_aprobar(id) {
+  const ro = ROLES[currentRole];
+  await _v_sb.from('vacation_requests').update({status:'approved', approved_by:ro.id}).eq('id',id);
+  await _v_cargarDatos(); _v_render();
+}
+async function _v_rechazar(id) {
+  await _v_sb.from('vacation_requests').update({status:'rejected'}).eq('id',id);
+  await _v_cargarDatos(); _v_render();
+}
+
+// ══ DISCIPLINARIO ═══════════════════════════════════════════════════
+const _d_SB_URL = 'https://kpuqabxmpavxgbzxzlng.supabase.co';
+const _d_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwdXFhYnhtcGF2eGdienh6bG5nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2OTk1NzAsImV4cCI6MjA4MDI3NTU3MH0.CoB4NA6Z8qtTrRzvIqfP-hm3T1m24WpRNI1Xc74all8';
+const _d_sb = supabase.createClient(_d_SB_URL, _d_SB_KEY);
+
+let _d_RECORDS = [];
+let _d_EMPLEADOS = [];
+let _d_cargando = false;
+
+async function _d_cargarDatos() {
+  try {
+    const { data: recs, error: e1 } = await _d_sb.from('disciplinary_records')
+      .select('*').order('infraction_date', {ascending:false});
+    if (e1) throw e1;
+    _d_RECORDS = recs || [];
+    const { data: emps, error: e2 } = await _d_sb.from('employees')
+      .select('id,full_name,campaign_id').eq('status','active').order('full_name');
+    if (e2) throw e2;
+    _d_EMPLEADOS = emps || [];
+    return true;
+  } catch(e) { console.error('Error disciplinario:', e); return false; }
+}
+
+function _d_severityBadge(s) {
+  const cfg = {high:{bg:'#FEE2E2',color:'#991B1B',label:'Alta'},medium:{bg:'#FEF9C3',color:'#854D0E',label:'Media'},low:{bg:'#F1F5F9',color:'#475569',label:'Baja'}};
+  const c = cfg[s] || cfg.low;
+  return `<span style="font-size:11px;padding:3px 8px;border-radius:99px;background:${c.bg};color:${c.color};font-weight:600">${c.label}</span>`;
+}
+
+function _d_render() {
+  updateSidebarUser();
+  const c = document.getElementById('content');
+  if (_d_cargando) {
+    c.innerHTML = '<div style="text-align:center;padding:60px;color:#94A3B8"><div style="width:32px;height:32px;border:3px solid #E2E8F0;border-top-color:#62D3F5;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px"></div>Cargando...</div>';
+    return;
+  }
+  const ro = ROLES[currentRole];
+  const isSup = ['supervisor','manager','people','head_people'].includes(currentRole);
+  const records = isSup ? _d_RECORDS : _d_RECORDS.filter(r => r.employee_id === ro.id);
+  const activos = records.filter(r => r.is_active);
+
+  let rows = records.slice(0,50).map(r => {
+    const emp = _d_EMPLEADOS.find(e => e.id === r.employee_id);
+    return `<tr style="border-top:1px solid #F1F5F9">
+      <td style="padding:10px 14px"><div style="font-size:13px;font-weight:600">${emp?emp.full_name:r.employee_id}</div><div style="font-size:11px;color:#94A3B8">${r.employee_id}</div></td>
+      <td style="padding:10px 14px;font-size:13px">${r.infraction_type||'—'}</td>
+      <td style="padding:10px 14px;font-size:13px;color:#64748B">${r.infraction_date||'—'}</td>
+      <td style="padding:10px 14px">${_d_severityBadge(r.severity)}</td>
+      <td style="padding:10px 14px"><span style="font-size:11px;padding:3px 8px;border-radius:99px;background:${r.is_active?'#FEE2E2':'#F1F5F9'};color:${r.is_active?'#991B1B':'#64748B'}">${r.is_active?'Activo':'Cerrado'}</span></td>
+      <td style="padding:10px 14px;font-size:12px;color:#64748B;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(r.description||'').slice(0,80)}</td>
+    </tr>`;
+  }).join('');
+
+  c.innerHTML = `<div style="max-width:1000px;margin:0 auto">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
+      <div style="background:#fff;border-radius:12px;padding:18px;border:1px solid #E2E8F0"><div style="font-size:28px;font-weight:800">${records.length}</div><div style="font-size:11px;color:#64748B;text-transform:uppercase;margin-top:4px">Total registros</div></div>
+      <div style="background:#fff;border-radius:12px;padding:18px;border:1px solid #E2E8F0"><div style="font-size:28px;font-weight:800;color:#DC2626">${activos.length}</div><div style="font-size:11px;color:#64748B;text-transform:uppercase;margin-top:4px">Activos</div></div>
+      <div style="background:#fff;border-radius:12px;padding:18px;border:1px solid #E2E8F0"><div style="font-size:28px;font-weight:800;color:#D97706">${records.filter(r=>r.severity==='high').length}</div><div style="font-size:11px;color:#64748B;text-transform:uppercase;margin-top:4px">Severidad alta</div></div>
+    </div>
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-weight:700;font-size:13px">Registros disciplinarios</div>
+        ${isSup?`<button onclick="_d_abrirNuevo()" style="padding:7px 14px;background:#0F172A;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ Nuevo registro</button>`:''}
+      </div>
+      ${records.length?`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:800px">
+        <thead style="background:#F8FAFC"><tr>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Empleado</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Infracción</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Fecha</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Severidad</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Status</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Descripción</th>
+        </tr></thead><tbody>${rows}</tbody>
+      </table></div>`:'<div style="text-align:center;padding:30px;color:#94A3B8">Sin registros disciplinarios</div>'}
+    </div>
+  </div>`;
+}
+
+function _d_abrirNuevo() {
+  const opts = _d_EMPLEADOS.map(e => `<option value="${e.id}">${e.full_name}${e.campaign_id?' ('+e.campaign_id+')':''}</option>`).join('');
+  document.getElementById('modalTitle').textContent = 'Nuevo Registro Disciplinario';
+  document.getElementById('modalSub').textContent = '';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-section">
+      <label class="modal-label">EMPLEADO</label>
+      <select id="d-emp" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+        <option value="">Selecciona...</option>${opts}
+      </select>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">TIPO DE INFRACCIÓN</label>
+      <input type="text" id="d-tipo" placeholder="Ej: Retardo acumulado" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">SEVERIDAD</label>
+      <select id="d-sev" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+        <option value="low">Baja</option>
+        <option value="medium">Media</option>
+        <option value="high">Alta</option>
+      </select>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">FECHA</label>
+      <input type="date" id="d-fecha" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">DESCRIPCIÓN</label>
+      <textarea id="d-desc" rows="3" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)" placeholder="Describe la infracción..."></textarea>
+    </div>`;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+    <button class="btn-primary" onclick="_d_crearRegistro()">Guardar</button>`;
+  document.getElementById('modalBackdrop').style.display = 'flex';
+  setTimeout(function(){ const el=document.getElementById('d-fecha'); if(el) el.value=ymd(NOW); },50);
+}
+
+async function _d_crearRegistro() {
+  const emp   = document.getElementById('d-emp')?.value;
+  const tipo  = document.getElementById('d-tipo')?.value?.trim();
+  const sev   = document.getElementById('d-sev')?.value;
+  const fecha = document.getElementById('d-fecha')?.value;
+  const desc  = document.getElementById('d-desc')?.value?.trim();
+  if (!emp)   { alert('Selecciona un empleado'); return; }
+  if (!tipo)  { alert('Escribe el tipo de infracción'); return; }
+  if (!fecha) { alert('Selecciona la fecha'); return; }
+  const ro = ROLES[currentRole];
+  const windowExpires = new Date(new Date(fecha).getTime() + 90*86400000).toISOString().slice(0,10);
+  const { error } = await _d_sb.from('disciplinary_records').insert({
+    id: crypto.randomUUID(), employee_id: emp,
+    infraction_type: tipo, infraction_date: fecha,
+    severity: sev, description: desc || null,
+    is_active: true, issued_by: ro.id,
+    window_days: 90, window_expires: windowExpires,
+  });
+  if (error) { alert('Error: ' + error.message); return; }
+  closeModal();
+  _d_cargando = true; _d_render();
+  await _d_cargarDatos();
+  _d_cargando = false; _d_render();
+}
+
+// ══ EQUIPO ═══════════════════════════════════════════════════════════
+const _e_SB_URL = 'https://kpuqabxmpavxgbzxzlng.supabase.co';
+const _e_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwdXFhYnhtcGF2eGdienh6bG5nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2OTk1NzAsImV4cCI6MjA4MDI3NTU3MH0.CoB4NA6Z8qtTrRzvIqfP-hm3T1m24WpRNI1Xc74all8';
+const _e_sb = supabase.createClient(_e_SB_URL, _e_SB_KEY);
+
+let _e_EMPLEADOS = [];
+let _e_cargando = false;
+let _e_perfilAbierto = null;
+let _e_busqueda = '';
+let _e_filtroStatus = 'active';
+
+async function _e_cargarEmpleados() {
+  try {
+    const { data, error } = await _e_sb.from('employees')
+      .select('id,full_name,first_name,last_name,email,campaign_id,system_role,supervisor_id,supervisor_name,shift_start,shift_end,hire_date,termination_date,termination_type,termination_reason,termination_details,eligible_for_rehire,status,position_title,phone,birth_date,gender,secondary_campaign,lob,address_street,address_colonia')
+      .order('full_name');
+    if (error) throw error;
+    _e_EMPLEADOS = data || [];
+    return true;
+  } catch(e) { console.error('Error empleados:', e); return false; }
+}
+
+function _e_roleLabel(r) {
+  const m = {agent:'Agente',supervisor:'Supervisor',manager:'Manager',people:'People',head_people:'Head of People',ceo:'CEO',workforce:'Workforce'};
+  return m[r] || r;
+}
+
+function _e_statusBadge(status) {
+  return status === 'active'
+    ? '<span style="font-size:11px;padding:3px 8px;border-radius:99px;background:#DCFCE7;color:#166534;font-weight:600">Activo</span>'
+    : '<span style="font-size:11px;padding:3px 8px;border-radius:99px;background:#F1F5F9;color:#475569;font-weight:600">Baja</span>';
+}
+
+function _e_visibleEmpleados() {
+  let lista = _e_EMPLEADOS;
+  if (_e_filtroStatus !== 'all') lista = lista.filter(e => e.status === _e_filtroStatus);
+  if (_e_busqueda) {
+    const q = _e_busqueda.toLowerCase();
+    lista = lista.filter(e =>
+      (e.full_name||'').toLowerCase().includes(q) ||
+      (e.id||'').toLowerCase().includes(q) ||
+      (e.email||'').toLowerCase().includes(q) ||
+      (e.campaign_id||'').toLowerCase().includes(q)
+    );
+  }
+  if (currentRole === 'supervisor') {
+    const ro = ROLES[currentRole];
+    lista = lista.filter(e => e.supervisor_id === ro.id || e.id === ro.id);
+  }
+  return lista;
+}
+
+
+// ── REPORTES DE TALENT ──────────────────────────────────────────────
+let _e_mainTab = 'lista';
+let _e_history = [];
+let _e_reportPeriodo = 'mes';
+let _e_reportDesde = '';
+let _e_reportHasta = '';
+
+async function _e_cargarHistory() {
+  try {
+    const { data, error } = await _e_sb.from('employment_history').select('*').order('termination_date',{ascending:false});
+    if (error) throw error;
+    _e_history = data || [];
+  } catch(e) { console.error('Error cargando employment_history:', e); _e_history = []; }
+}
+
+function _e_rangoFechas(periodo) {
+  const hoy = new Date(NOW);
+  let desde = new Date(hoy);
+  if (periodo === 'semana') desde.setDate(hoy.getDate() - 7);
+  else if (periodo === 'mes') desde.setMonth(hoy.getMonth() - 1);
+  else if (periodo === 'trimestre') desde.setMonth(hoy.getMonth() - 3);
+  else if (periodo === 'semestre') desde.setMonth(hoy.getMonth() - 6);
+  else if (periodo === 'anio') desde.setFullYear(hoy.getFullYear() - 1);
+  else if (periodo === 'custom') return { desde: _e_reportDesde, hasta: _e_reportHasta || ymd(NOW) };
+  return { desde: ymd(desde), hasta: ymd(hoy) };
+}
+
+function _e_renderTabs() {
+  return `<div style="display:flex;gap:2px;margin-bottom:16px;border-bottom:2px solid #E2E8F0">
+    <button onclick="_e_mainTab='lista';_e_render()" style="padding:9px 18px;border:none;border-bottom:2px solid ${_e_mainTab==='lista'?'#0F172A':'transparent'};margin-bottom:-2px;font-size:12px;font-weight:600;font-family:var(--f);cursor:pointer;background:transparent;color:${_e_mainTab==='lista'?'#0F172A':'#94A3B8'}">👥 Lista</button>
+    <button onclick="_e_mainTab='reportes';_e_render()" style="padding:9px 18px;border:none;border-bottom:2px solid ${_e_mainTab==='reportes'?'#0F172A':'transparent'};margin-bottom:-2px;font-size:12px;font-weight:600;font-family:var(--f);cursor:pointer;background:transparent;color:${_e_mainTab==='reportes'?'#0F172A':'#94A3B8'}">📊 Reportes</button>
+  </div>`;
+}
+
+function _e_kpiBox(val, label, color) {
+  return `<div style="background:#fff;border-radius:12px;padding:16px;border:1px solid #E2E8F0">
+    <div style="font-size:24px;font-weight:800;color:${color||'#0F172A'}">${val}</div>
+    <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:.4px;margin-top:4px">${label}</div>
+  </div>`;
+}
+
+function _e_barRow(label, count, total, color) {
+  const pct = total > 0 ? Math.round((count/total)*100) : 0;
+  return `<div style="margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+      <span style="color:#334155">${label}</span>
+      <span style="color:#64748B;font-weight:600">${count} (${pct}%)</span>
+    </div>
+    <div style="background:#F1F5F9;border-radius:99px;height:8px;overflow:hidden">
+      <div style="background:${color||'#0F172A'};height:100%;width:${pct}%;border-radius:99px"></div>
+    </div>
+  </div>`;
+}
+
+function _e_renderReportes() {
+  const activos = _e_EMPLEADOS.filter(e => e.status === 'active');
+  const totalHistorico = _e_EMPLEADOS.length;
+  const { desde, hasta } = _e_rangoFechas(_e_reportPeriodo);
+
+  // Bajas en el rango seleccionado
+  const bajasRango = _e_history.filter(h => h.termination_date && h.termination_date >= desde && h.termination_date <= hasta);
+  const altasRango = activos.filter(e => e.hire_date && e.hire_date >= desde && e.hire_date <= hasta);
+
+  // Headcount promedio del periodo (aprox: activos actuales + bajas del periodo)
+  const headcountPromedio = activos.length + bajasRango.length;
+  const tasaRotacion = headcountPromedio > 0 ? ((bajasRango.length / headcountPromedio) * 100).toFixed(1) : '0.0';
+
+  // ── Composición actual ──
+  const porCampana = {};
+  activos.forEach(e => { const c = e.campaign_id || 'Sin campaña'; porCampana[c] = (porCampana[c]||0)+1; });
+
+  const porRol = {};
+  activos.forEach(e => { const r = _e_roleLabel(e.system_role); porRol[r] = (porRol[r]||0)+1; });
+
+  const porGenero = {};
+  activos.forEach(e => { const g = e.gender || 'No especificado'; porGenero[g] = (porGenero[g]||0)+1; });
+
+  // ── Antigüedad ──
+  const antiguedadBuckets = {'0-3 meses':0,'3-6 meses':0,'6-12 meses':0,'1-2 años':0,'2+ años':0};
+  activos.forEach(e => {
+    if (!e.hire_date) return;
+    const dias = diffDays(e.hire_date, ymd(NOW));
+    if (dias <= 90) antiguedadBuckets['0-3 meses']++;
+    else if (dias <= 180) antiguedadBuckets['3-6 meses']++;
+    else if (dias <= 365) antiguedadBuckets['6-12 meses']++;
+    else if (dias <= 730) antiguedadBuckets['1-2 años']++;
+    else antiguedadBuckets['2+ años']++;
+  });
+
+  // ── Rotación por campaña ──
+  const rotacionPorCampana = {};
+  Object.keys(porCampana).forEach(c => {
+    const bajasC = bajasRango.filter(h => h.campaign_id === c).length;
+    const activosC = porCampana[c];
+    rotacionPorCampana[c] = { bajas: bajasC, activos: activosC, tasa: activosC+bajasC>0 ? ((bajasC/(activosC+bajasC))*100).toFixed(1) : '0.0' };
+  });
+
+  // ── Rotación por supervisor ──
+  const supervisores = {};
+  activos.forEach(e => {
+    if (!e.supervisor_name) return;
+    if (!supervisores[e.supervisor_name]) supervisores[e.supervisor_name] = { activos: 0, bajas: 0 };
+    supervisores[e.supervisor_name].activos++;
+  });
+  bajasRango.forEach(h => {
+    const emp = _e_EMPLEADOS.find(e => e.id === h.employee_id);
+    const supName = emp?.supervisor_name;
+    if (!supName) return;
+    if (!supervisores[supName]) supervisores[supName] = { activos: 0, bajas: 0 };
+    supervisores[supName].bajas++;
+  });
+
+  // ── Voluntaria vs Involuntaria ──
+  const volXInvol = { voluntary: 0, involuntary: 0 };
+  bajasRango.forEach(h => { if (h.termination_type === 'voluntary') volXInvol.voluntary++; else if (h.termination_type === 'involuntary') volXInvol.involuntary++; });
+
+  // ── Top categorías de baja ──
+  const categorias = {};
+  bajasRango.forEach(h => {
+    if (!h.termination_reason) return;
+    const cat = h.termination_reason.split(' › ')[0];
+    categorias[cat] = (categorias[cat]||0)+1;
+  });
+  const topCategorias = Object.entries(categorias).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+  // ── Top razones específicas ──
+  const detalles = {};
+  bajasRango.forEach(h => {
+    const d = h.termination_details || (h.termination_reason ? h.termination_reason.split(' › ').pop() : null);
+    if (!d) return;
+    detalles[d] = (detalles[d]||0)+1;
+  });
+  const topDetalles = Object.entries(detalles).sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+  // ── Elegibilidad recontratación ──
+  const rehireStats = { Yes:0, No:0, Conditional:0 };
+  bajasRango.forEach(h => { if (rehireStats[h.eligible_for_rehire] !== undefined) rehireStats[h.eligible_for_rehire]++; });
+
+  const colors = ['#0F172A','#3B82F6','#16A34A','#D97706','#DC2626','#7C3AED','#0891B2','#DB2777'];
+
+  return `
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+    <span style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase">📅 Periodo de rotación:</span>
+    ${[['semana','Última semana'],['mes','Último mes'],['trimestre','Último trimestre'],['semestre','Último semestre'],['anio','Último año'],['custom','Personalizado']].map(([val,label])=>`
+      <button onclick="_e_reportPeriodo='${val}';_e_render()" style="padding:6px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:11px;font-weight:600;font-family:var(--f);cursor:pointer;background:${_e_reportPeriodo===val?'#0F172A':'#fff'};color:${_e_reportPeriodo===val?'#fff':'#64748B'}">${label}</button>
+    `).join('')}
+    ${_e_reportPeriodo==='custom'?`
+      <input type="date" value="${_e_reportDesde}" onchange="_e_reportDesde=this.value;_e_render()" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:8px;font-size:12px;font-family:var(--f)"/>
+      <span style="color:#94A3B8;font-size:12px">a</span>
+      <input type="date" value="${_e_reportHasta}" onchange="_e_reportHasta=this.value;_e_render()" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:8px;font-size:12px;font-family:var(--f)"/>
+    `:''}
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+    ${_e_kpiBox(activos.length, 'Headcount activo', '#0F172A')}
+    ${_e_kpiBox(altasRango.length, 'Altas en periodo', '#16A34A')}
+    ${_e_kpiBox(bajasRango.length, 'Bajas en periodo', '#DC2626')}
+    ${_e_kpiBox(tasaRotacion+'%', 'Tasa de rotación', '#D97706')}
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:18px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:14px">📍 Composición por campaña</div>
+      ${Object.entries(porCampana).sort((a,b)=>b[1]-a[1]).map(([c,n],i)=>_e_barRow(c, n, activos.length, colors[i%colors.length])).join('')}
+    </div>
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:18px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:14px">🧑‍💼 Composición por rol</div>
+      ${Object.entries(porRol).sort((a,b)=>b[1]-a[1]).map(([r,n],i)=>_e_barRow(r, n, activos.length, colors[i%colors.length])).join('')}
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:18px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:14px">⚧ Composición por género</div>
+      ${Object.entries(porGenero).sort((a,b)=>b[1]-a[1]).map(([g,n],i)=>_e_barRow(g, n, activos.length, colors[i%colors.length])).join('')}
+    </div>
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:18px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:14px">⏳ Pirámide de antigüedad</div>
+      ${Object.entries(antiguedadBuckets).map(([b,n],i)=>_e_barRow(b, n, activos.length, colors[i%colors.length])).join('')}
+    </div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:18px;margin-bottom:16px">
+    <div style="font-weight:700;font-size:13px;margin-bottom:14px">🔄 Rotación por campaña (periodo seleccionado)</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:500px">
+      <thead style="background:#F8FAFC"><tr>
+        <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Campaña</th>
+        <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Activos</th>
+        <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Bajas en periodo</th>
+        <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Tasa de rotación</th>
+      </tr></thead>
+      <tbody>${Object.entries(rotacionPorCampana).sort((a,b)=>parseFloat(b[1].tasa)-parseFloat(a[1].tasa)).map(([c,d])=>`
+        <tr style="border-top:1px solid #F1F5F9">
+          <td style="padding:8px 12px;font-size:13px;font-weight:600">${c}</td>
+          <td style="padding:8px 12px;font-size:13px">${d.activos}</td>
+          <td style="padding:8px 12px;font-size:13px;color:#DC2626">${d.bajas}</td>
+          <td style="padding:8px 12px;font-size:13px;font-weight:700;color:${parseFloat(d.tasa)>15?'#DC2626':parseFloat(d.tasa)>8?'#D97706':'#16A34A'}">${d.tasa}%</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:18px;margin-bottom:16px">
+    <div style="font-weight:700;font-size:13px;margin-bottom:14px">👤 Rotación por supervisor (periodo seleccionado)</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:500px">
+      <thead style="background:#F8FAFC"><tr>
+        <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Supervisor</th>
+        <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Equipo activo</th>
+        <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Bajas en periodo</th>
+      </tr></thead>
+      <tbody>${Object.entries(supervisores).sort((a,b)=>b[1].bajas-a[1].bajas).map(([s,d])=>`
+        <tr style="border-top:1px solid #F1F5F9">
+          <td style="padding:8px 12px;font-size:13px;font-weight:600">${s}</td>
+          <td style="padding:8px 12px;font-size:13px">${d.activos}</td>
+          <td style="padding:8px 12px;font-size:13px;color:${d.bajas>2?'#DC2626':'#64748B'}">${d.bajas}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:18px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:14px">⚖️ Voluntaria vs Involuntaria</div>
+      ${_e_barRow('Voluntaria', volXInvol.voluntary, volXInvol.voluntary+volXInvol.involuntary, '#16A34A')}
+      ${_e_barRow('Involuntaria', volXInvol.involuntary, volXInvol.voluntary+volXInvol.involuntary, '#DC2626')}
+    </div>
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:18px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:14px">🔁 Elegibilidad para recontratación</div>
+      ${_e_barRow('Sí', rehireStats.Yes, bajasRango.length, '#16A34A')}
+      ${_e_barRow('No', rehireStats.No, bajasRango.length, '#DC2626')}
+      ${_e_barRow('Condicional', rehireStats.Conditional, bajasRango.length, '#D97706')}
+    </div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:18px;margin-bottom:16px">
+    <div style="font-weight:700;font-size:13px;margin-bottom:14px">🏷️ Top categorías de baja</div>
+    ${topCategorias.length ? topCategorias.map(([c,n],i)=>_e_barRow(c, n, bajasRango.length, colors[i%colors.length])).join('') : '<div style="text-align:center;padding:20px;color:#94A3B8;font-size:13px">Sin bajas en este periodo</div>'}
+  </div>
+
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:18px">
+    <div style="font-weight:700;font-size:13px;margin-bottom:14px">🔍 Top 10 razones específicas de baja</div>
+    ${topDetalles.length ? `<table style="width:100%;border-collapse:collapse">
+      <tbody>${topDetalles.map(([d,n])=>`
+        <tr style="border-top:1px solid #F1F5F9">
+          <td style="padding:8px 12px;font-size:13px">${d}</td>
+          <td style="padding:8px 12px;font-size:13px;font-weight:700;text-align:right">${n}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>` : '<div style="text-align:center;padding:20px;color:#94A3B8;font-size:13px">Sin bajas en este periodo</div>'}
+  </div>`;
+}
+
+function _e_rowsHTML(lista) {
+  return lista.map(e => `
+    <tr onclick="_e_abrirPerfil('${e.id}')" style="cursor:pointer" onmouseover="this.style.background='#F8FAFC'" onmouseout="this.style.background=''">
+      <td style="padding:10px 14px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:32px;height:32px;border-radius:50%;background:#E2E8F0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#64748B;flex-shrink:0">${(e.full_name||'?')[0].toUpperCase()}</div>
+          <div><div style="font-size:13px;font-weight:600">${e.full_name}</div><div style="font-size:11px;color:#94A3B8">${e.id}</div></div>
+        </div>
+      </td>
+      <td style="padding:10px 14px;font-size:12px;color:#64748B">${e.campaign_id||'—'}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#64748B">${_e_roleLabel(e.system_role)}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#64748B">${e.supervisor_name||'—'}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#64748B">${e.shift_start?e.shift_start.slice(0,5)+' – '+(e.shift_end||'').slice(0,5):'—'}</td>
+      <td style="padding:10px 14px">${_e_statusBadge(e.status)}</td>
+    </tr>`).join('');
+}
+
+function _e_filtrarYActualizarTabla() {
+  _e_busqueda = document.getElementById('e-search-input')?.value || '';
+  const lista = _e_visibleEmpleados();
+  const tbody = document.getElementById('e-table-body');
+  if (tbody) tbody.innerHTML = _e_rowsHTML(lista);
+  const countEl = document.getElementById('e-count');
+  if (countEl) countEl.textContent = lista.length + ' empleados';
+}
+
+function _e_renderLista() {
+  const lista = _e_visibleEmpleados();
+
+  return `
+  <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
+    <input id="e-search-input" type="text" placeholder="Buscar por nombre, ID, campaña..." value="${_e_busqueda}"
+      oninput="_e_filtrarYActualizarTabla()"
+      style="flex:1;min-width:200px;padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+    <select onchange="_e_filtroStatus=this.value;_e_render()" style="padding:8px 10px;border:1px solid #E2E8F0;border-radius:8px;font-size:12px;font-family:var(--f)">
+      <option value="active" ${_e_filtroStatus==='active'?'selected':''}>Activos</option>
+      <option value="inactive" ${_e_filtroStatus==='inactive'?'selected':''}>Bajas</option>
+      <option value="all" ${_e_filtroStatus==='all'?'selected':''}>Todos</option>
+    </select>
+    <span id="e-count" style="font-size:12px;color:#94A3B8">${lista.length} empleados</span>
+    ${['people','head_people'].includes(currentRole) ? '<button onclick="_e_abrirAlta()" style="padding:8px 16px;background:#0F172A;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">+ Dar de alta</button>' : ''}
+    ${['people','head_people'].includes(currentRole) ? '<button onclick="_e_abrirBulkUpload()" style="padding:8px 16px;background:#fff;color:#0F172A;border:1px solid #E2E8F0;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">📤 Alta masiva</button>' : ''}
+  </div>
+  <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden">
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:700px">
+      <thead style="background:#F8FAFC"><tr>
+        <th style="padding:10px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Empleado</th>
+        <th style="padding:10px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Campaña</th>
+        <th style="padding:10px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Rol</th>
+        <th style="padding:10px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Supervisor</th>
+        <th style="padding:10px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Turno</th>
+        <th style="padding:10px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Status</th>
+      </tr></thead>
+      <tbody id="e-table-body">${_e_rowsHTML(lista)}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function _e_renderPerfil(empId) {
+  const e = _e_EMPLEADOS.find(x => x.id === empId);
+  if (!e) return '<div style="text-align:center;padding:40px;color:#94A3B8">Empleado no encontrado</div>';
+  const canManage = ['people','head_people'].includes(currentRole);
+  const canBaja = canManage && e.status === 'active';
+  const canEditBaja = canManage && e.status === 'inactive';
+
+  return `<div style="max-width:800px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+      <button onclick="_e_perfilAbierto=null;_e_render()" style="border:1px solid #E2E8F0;border-radius:8px;padding:7px 14px;background:#fff;cursor:pointer;font-size:12px;font-weight:600">← Volver</button>
+      <div style="font-size:15px;font-weight:700;flex:1">${e.full_name}</div>
+      ${_e_statusBadge(e.status)}
+      ${canBaja?`<button onclick="_e_abrirBaja('${e.id}')" style="padding:7px 14px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🔴 Dar de baja</button>`:''}
+      ${canEditBaja?`<button onclick="_e_abrirBaja('${e.id}',true)" style="padding:7px 14px;background:#FFF7ED;color:#9A3412;border:1px solid #FDBA74;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✏️ Editar motivo de baja</button>`:''}
+      ${canEditBaja?`<button onclick="_e_abrirReingreso('${e.id}')" style="padding:7px 14px;background:#EFF6FF;color:#1D4ED8;border:1px solid #93C5FD;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🔄 Reingresar</button>`:''}
+    </div>
+    ${e.status === 'inactive' ? `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:20px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px">Motivo de baja</div>
+      ${[['Tipo de baja', e.termination_type === 'voluntary' ? 'Voluntaria' : e.termination_type === 'involuntary' ? 'Involuntaria' : (e.termination_type||'—')],
+         ['Motivo completo', e.termination_reason || '—'],
+         ['Detalle específico', e.termination_details || '—'],
+         ['Fecha de baja', e.termination_date || '—'],
+         ['Elegible recontratación', e.eligible_for_rehire === 'Yes' ? 'Sí' : e.eligible_for_rehire === 'No' ? 'No' : e.eligible_for_rehire === 'Conditional' ? 'Condicional' : (e.eligible_for_rehire||'—')],
+        ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #F1F5F9;font-size:13px;gap:12px"><span style="color:#64748B;flex-shrink:0">${l}</span><span style="font-weight:600;color:#0F172A;text-align:right">${v}</span></div>`).join('')}
+    </div>` : ''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:20px">
+        <div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px">Información</div>
+        ${[['ID',e.id],['Email',e.email||'—'],['Teléfono',e.phone||'—'],
+           ['Campaña',e.campaign_id||'—'],['LOB',e.lob||'—'],
+           ['Rol',_e_roleLabel(e.system_role)],['Puesto',e.position_title||'—'],
+           ['Supervisor',e.supervisor_name||'—']
+          ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #F1F5F9;font-size:13px"><span style="color:#64748B">${l}</span><span style="font-weight:600;color:#0F172A;text-align:right;max-width:60%">${v}</span></div>`).join('')}
+      </div>
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:20px">
+        <div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px">Laboral</div>
+        ${[['Fecha ingreso',e.hire_date||'—'],
+           ['Fecha baja',e.termination_date||'—'],
+           ['Turno',e.shift_start?e.shift_start.slice(0,5)+' – '+(e.shift_end||'').slice(0,5):'—'],
+           ['Camp. secundaria',e.secondary_campaign||'—'],
+           ['Nacimiento',e.birth_date||'—'],
+           ['Género',e.gender||'—']
+          ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #F1F5F9;font-size:13px"><span style="color:#64748B">${l}</span><span style="font-weight:600;color:#0F172A">${v}</span></div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function _e_render() {
+  updateSidebarUser();
+  const c = document.getElementById('content');
+  if (_e_cargando) {
+    c.innerHTML = '<div style="text-align:center;padding:60px;color:#94A3B8"><div style="width:32px;height:32px;border:3px solid #E2E8F0;border-top-color:#62D3F5;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px"></div>Cargando equipo...</div>';
+    return;
+  }
+  if (_e_EMPLEADOS.length === 0 && !_e_cargando) {
+    c.innerHTML = '<div style="text-align:center;padding:60px;color:#DC2626"><div style="font-size:32px;margin-bottom:12px">⚠️</div><p style="font-weight:600;margin-bottom:8px">No se pudieron cargar los empleados</p><button onclick="_e_cargarEmpleados().then(()=>_e_render())" style="padding:10px 20px;background:#0F172A;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">🔄 Reintentar</button></div>';
+    return;
+  }
+  if (_e_perfilAbierto) { c.innerHTML = _e_renderPerfil(_e_perfilAbierto); return; }
+  if (currentRole === 'agent') { c.innerHTML = _e_renderPerfil(ROLES[currentRole].id); return; }
+
+  const canSeeReportes = ['head_people','people','manager','ceo'].includes(currentRole);
+  if (!canSeeReportes) { c.innerHTML = _e_renderLista(); return; }
+
+  c.innerHTML = _e_renderTabs() + (_e_mainTab === 'reportes' ? _e_renderReportes() : _e_renderLista());
+}
+
+function _e_abrirPerfil(id) { _e_perfilAbierto = id; _e_render(); }
+
+const _E_BAJA_TREE = {"🎓 ACADÉMICO / FORMACIÓN": {"📚 Carga académica / prioridad de estudios": ["Aumento de carga académica", "Periodo de exámenes finales", "Preparación de tesis / titulación", "Decisión de priorizar estudios"], "🕒 Horarios escolares incompatibles": ["Cambio de horario escolar incompatible", "Cambio a modalidad presencial obligatoria"], "🎓 Procesos académicos obligatorios": ["Servicio social", "Prácticas profesionales", "Intercambio escolar"], "🔄 Cambios en trayectoria académica": ["Inicio de Licenciatura", "Inicio de postgrado / Maestría", "Cambio de escuela / Carrera"]}, "💼 OPORTUNIDAD LABORAL EXTERNA": {"💰 Mejora económica": ["Oferta con mayor salario", "Oferta con mejores prestaciones (Bonos, vales de despensa, etc)", "Oferta con comisiones más altas"], "📈 Crecimiento profesional": ["Promoción en otra empresa", "Oferta con plan de carrera más claro"], "🧑‍💻 Afinidad profesional": ["Trabajo en su área de estudio", "Empleo gubernamental", "Cambio de industria"], "🕒 Mejores condiciones laborales": ["Oferta con mejor horario", "Oferta remota", "Oferta híbrida", "Oferta con menor carga laboral"], "🚀 Independencia laboral": ["Negocio propio", "Freelance"]}, "🏠 PERSONAL / FAMILIAR": {"👨‍👩‍👧 Responsabilidades familiares": ["Cuidado de hijos", "Cuidado de padres", "Cuidado de familiar", "Cambios en dinámica familiar", "Conflictos de horario con familia"], "❤️ Situaciones personales/emocionales": ["Problemas de pareja / divorcio", "Crisis emocional", "Problemas personales"], "🏥 Salud": ["Problemas de salud física", "Problemas de salud mental", "Estudios médicos en otra ciudad o país"], "📍 Cambios de vida": ["Mudanza", "Cambio de ciudad", "Cambios en prioridades personales"], "💰 Presión económica personal": ["Problemas financieros", "Necesidad de segundo empleo"], "⚰️ Eventos críticos": ["Fallecimiento", "Fallecimiento de familiar directo", "Fallecimiento de mascotas", "Incapacidad laboral"], "✋ Decisiones personales": ["Año sabático / descanso", "Compromisos religiosos"]}, "🧠 CULTURA Y EXPERIENCIA DEL EMPLEADO": {"💰 Problemas de compensación": ["Retrasos o problemas constantes con la nómina", "Falta de claridad en el salario ofertado", "Bonos no alcanzables", "Cambios en esquema de pago"], "📈 Falta de crecimiento": ["Falta de oportunidades", "Falta de plan de carrera", "Promesas no cumplidas"], "🧑‍💼 Problemas con liderazgo": ["Falta de apoyo del supervisor", "Micromanagement", "Mala comunicación con líder directo", "Trato injusto", "Falta de empatía", "Falta de feedback y mejora continua", "Problema con el equipo de liderazgo", "Cambios constantes de supervisor"], "🤝 Ambiente laboral negativo": ["Conflictos con compañeros", "Ambiente negativo", "Falta de integración", "Favoritismo", "Falta de pertenencia"], "⚖️ Sobrecarga laboral / estrés": ["Exceso de trabajo", "Falta de personal", "Presión excesiva por métricas", "Burnout", "Tareas fuera del rol"], "🕒 Problemas de balance vida-trabajo": ["Falta de balance", "Cambios de horario inesperados", "Falta de descanso"], "🎓 Problemas de capacitación": ["Capacitación insuficiente", "Capacitación acelerada", "Falta de práctica"]}, "⏰ DISPONIBILIDAD / HORARIO": {"🕒 Incompatibilidad de horario": ["Horario incompatible", "Cambio de disponibilidad", "Conflicto con otro empleo"], "🌙 Restricciones específicas": ["No puede laborar fines de semana", "No turnos nocturnos"]}, "🚗 TRASLADO / MODALIDAD": {"🚗 Problemas de traslado": ["Tiempo excesivo de traslado", "Problemas de transporte", "Costo excesivo de transporte", "Falta de transporte", "Inseguridad de la zona en donde reside"]}, "📉 DESEMPEÑO / CONDUCTA / ASISTENCIA": {"📊 Bajo desempeño": ["No cumple KPIs", "No pasó periodo de prueba de 90 días", "Dificultad de aprendizaje", "No paso el proceso de Glidepath"], "⏱️ Problemas de asistencia": ["Retardos acumulados", "Ausencias acumuladas", "Abandono de trabajo"], "📋 Problemas de conducta": ["Incumplimiento de políticas", "Conducta inapropiada", "Conflictos disciplinarios", "Uso indebido de herramientas", "Abandono del centro de trabajo"], "🚫 Falta de adaptación / fit": ["No logró adaptarse al rol", "Falta de compromiso", "Desmotivación", "Desalineación cultural"], "🧑‍💻 Problemas operativos específicos": ["Evitación de tareas", "Negación de servicio"]}, "⚠️ OTROS / EXTERNOS": {"⚖️ Factores legales": ["Problemas migratorios", "Deportación", "Problemas legales (Encarcelamiento)"], "🌍 Eventos externos": ["Desastres naturales", "Pandemia"], "🏢 Cambios organizacionales": ["Eliminación de posición", "Cierre de operación"], "🧲 Reclutamiento / Expectativas": ["Información incorrecta durante la contratación", "Falsas expectativas con las actividades a realizar", "Falsas expectativas en el horario ofertado", "Falsas expectativas con el salario ofertado"], "🧪 Onboarding / Training": ["Mala experiencia en capacitación", "Falta de acompañamiento inicial", "No entendió el rol en capacitación", "Mala experiencia con trainer"]}};
+
+
+function _e_siguienteId() {
+  let maxNum = 0;
+  _e_EMPLEADOS.forEach(e => {
+    const m = (e.id || '').match(/^CX(\d+)$/);
+    if (m) {
+      const num = parseInt(m[1], 10);
+      if (num > maxNum) maxNum = num;
+    }
+  });
+  const next = maxNum + 1;
+  return 'CX' + String(next).padStart(5, '0');
+}
+
+
+// ── ALTA MASIVA (CSV) ───────────────────────────────────────────────
+let _e_bulkRows = [];
+let _e_bulkErrors = [];
+
+const _E_BULK_COLUMNS = [
+  'id','full_name','birth_date','gender','email','personal_email','phone',
+  'address','system_role','campaign_id','lob','queue','position_title',
+  'supervisor_id','shift_start','shift_end','days_off','hire_date',
+  'bank_name','bank_account'
+];
+
+const _E_BULK_HEADERS_LABEL = {
+  id:'ID', full_name:'Nombre completo', birth_date:'Fecha nacimiento (YYYY-MM-DD)',
+  gender:'Genero', email:'Correo empresarial', personal_email:'Correo personal',
+  phone:'Telefono', address:'Direccion', system_role:'Rol (agent/supervisor/manager/people/head_people)',
+  campaign_id:'Campana (aplazo/stori/iforex/casap/cashmind/clivi/admin/liderazgo/naya/sanarai/expx/nido/sueno_americano)', lob:'LOB',
+  queue:'Queue', position_title:'Puesto', supervisor_id:'ID Supervisor',
+  shift_start:'Turno entrada (HH:MM)', shift_end:'Turno salida (HH:MM)',
+  days_off:'Dias descanso (separados por ; ej: saturday;sunday)',
+  hire_date:'Fecha ingreso (YYYY-MM-DD)', bank_name:'Banco', bank_account:'Cuenta/CLABE'
+};
+
+function _e_descargarPlantilla() {
+  const headers = _E_BULK_COLUMNS.map(c => _E_BULK_HEADERS_LABEL[c]).join(',');
+  const ejemplo = [
+    _e_siguienteId(), 'Lionel Messi', '1995-04-12', 'Masculino',
+    'lionel.messi@evolvecx.io', 'lionelmessi@gmail.com', '5512345678',
+    'Calle Falsa 123, Centro, CP 00000', 'agent', 'aplazo', 'Soporte', 'WA Pagos',
+    'Representante de Atencion a Clientes', '', '09:00', '18:00',
+    'saturday;sunday', ymd(NOW), 'BBVA BANCOMER', '1234567890'
+  ].join(',');
+  const csv = headers + '\n' + ejemplo;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'plantilla_alta_empleados.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function _e_parseCSVLine(line) {
+  const result = [];
+  let cur = '', inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { inQuotes = !inQuotes; }
+    else if (ch === ',' && !inQuotes) { result.push(cur); cur = ''; }
+    else { cur += ch; }
+  }
+  result.push(cur);
+  return result.map(s => s.trim());
+}
+
+function _e_abrirBulkUpload() {
+  document.getElementById('modalTitle').textContent = 'Alta masiva de empleados';
+  document.getElementById('modalSub').textContent = 'Sube un CSV con los nuevos empleados';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="background:#EFF6FF;border-radius:8px;padding:12px;font-size:13px;color:#1D4ED8;margin-bottom:14px">
+      📋 Descarga la plantilla, llénala con tus empleados y súbela aquí. Cada login se creará con contraseña temporal <strong>0000</strong>.
+    </div>
+    <button onclick="_e_descargarPlantilla()" style="width:100%;padding:10px;background:#fff;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:14px;font-family:var(--f)">⬇️ Descargar plantilla CSV</button>
+    <div class="modal-section">
+      <label class="modal-label">SUBIR CSV LLENO</label>
+      <input type="file" id="bulk-file-input" accept=".csv" onchange="_e_procesarBulkCSV(event)" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+    </div>
+    <div id="bulk-preview"></div>`;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn-ghost" onclick="closeModal()">Cancelar</button>`;
+  document.getElementById('modalBackdrop').style.display = 'flex';
+}
+
+function _e_procesarBulkCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) {
+      document.getElementById('bulk-preview').innerHTML = '<div style="color:#DC2626;font-size:13px;padding:10px">El archivo no tiene filas de datos.</div>';
+      return;
+    }
+    // Saltar el header (línea 1) — usamos el orden fijo de _E_BULK_COLUMNS
+    const dataLines = lines.slice(1);
+    _e_bulkRows = [];
+    _e_bulkErrors = [];
+
+    dataLines.forEach(function(line, idx) {
+      const vals = _e_parseCSVLine(line);
+      const row = {};
+      _E_BULK_COLUMNS.forEach(function(col, i) { row[col] = vals[i] || ''; });
+      const rowNum = idx + 2; // +2 porque saltamos header y es 1-indexed
+
+      const errs = [];
+      if (!row.id || !row.id.match(/^[A-Z0-9]{4,12}$/i)) errs.push('ID inválido');
+      if (!row.full_name) errs.push('Falta nombre');
+      if (!row.email || !row.email.includes('@')) errs.push('Email inválido');
+      if (!row.position_title) errs.push('Falta puesto');
+      if (!row.hire_date) errs.push('Falta fecha de ingreso');
+      if (!['agent','supervisor','manager','people','head_people','ceo','workforce'].includes(row.system_role)) errs.push('Rol inválido');
+      if (!['aplazo','stori','iforex','casap','cashmind','clivi','admin','liderazgo','naya','sanarai','expx','nido','sueno_americano'].includes(row.campaign_id)) errs.push('Campaña inválida');
+
+      const idUpper = (row.id||'').toUpperCase();
+      if (_e_EMPLEADOS.some(emp => emp.id === idUpper && emp.status === 'active')) {
+        errs.push('ID ya existe como empleado activo');
+      }
+      // Duplicado dentro del mismo CSV
+      if (_e_bulkRows.some(r => r.id === idUpper)) errs.push('ID duplicado en el archivo');
+
+      row.id = idUpper;
+      row._rowNum = rowNum;
+      row._errors = errs;
+
+      if (errs.length) _e_bulkErrors.push(row);
+      _e_bulkRows.push(row);
+    });
+
+    _e_renderBulkPreview();
+  };
+  reader.readAsText(file);
+}
+
+function _e_renderBulkPreview() {
+  const validRows = _e_bulkRows.filter(r => r._errors.length === 0);
+  const errorRows = _e_bulkRows.filter(r => r._errors.length > 0);
+
+  let rows = _e_bulkRows.map(function(r) {
+    const hasErr = r._errors.length > 0;
+    return '<tr style="border-top:1px solid #F1F5F9;background:' + (hasErr?'#FEF2F2':'transparent') + '">' +
+      '<td style="padding:8px 10px;font-size:12px">' + r._rowNum + '</td>' +
+      '<td style="padding:8px 10px;font-size:12px;font-weight:600">' + r.id + '</td>' +
+      '<td style="padding:8px 10px;font-size:12px">' + r.full_name + '</td>' +
+      '<td style="padding:8px 10px;font-size:12px">' + r.email + '</td>' +
+      '<td style="padding:8px 10px;font-size:11px;color:#DC2626">' + (hasErr ? r._errors.join(', ') : '<span style="color:#16A34A">✓ OK</span>') + '</td>' +
+    '</tr>';
+  }).join('');
+
+  document.getElementById('bulk-preview').innerHTML = `
+    <div style="display:flex;gap:10px;margin:14px 0">
+      <div style="flex:1;background:#DCFCE7;border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:#16A34A">${validRows.length}</div>
+        <div style="font-size:11px;color:#166534">Listos para crear</div>
+      </div>
+      <div style="flex:1;background:#FEE2E2;border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:#DC2626">${errorRows.length}</div>
+        <div style="font-size:11px;color:#991B1B">Con errores</div>
+      </div>
+    </div>
+    <div style="max-height:280px;overflow-y:auto;border:1px solid #E2E8F0;border-radius:8px">
+      <table style="width:100%;border-collapse:collapse">
+        <thead style="background:#F8FAFC;position:sticky;top:0"><tr>
+          <th style="padding:8px 10px;text-align:left;font-size:10px;color:#64748B">Fila</th>
+          <th style="padding:8px 10px;text-align:left;font-size:10px;color:#64748B">ID</th>
+          <th style="padding:8px 10px;text-align:left;font-size:10px;color:#64748B">Nombre</th>
+          <th style="padding:8px 10px;text-align:left;font-size:10px;color:#64748B">Email</th>
+          <th style="padding:8px 10px;text-align:left;font-size:10px;color:#64748B">Status</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+    <button id="bulk-confirm-btn" onclick="_e_confirmarBulkAlta()" ${validRows.length===0?'disabled':''} style="background:${validRows.length===0?'#94A3B8':'#0F172A'};color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:${validRows.length===0?'not-allowed':'pointer'}">Crear ${validRows.length} empleado${validRows.length!==1?'s':''}</button>`;
+}
+
+async function _e_confirmarBulkAlta() {
+  const validRows = _e_bulkRows.filter(r => r._errors.length === 0);
+  if (!validRows.length) return;
+
+  const btn = document.getElementById('bulk-confirm-btn');
+  if (btn) { btn.disabled = true; }
+
+  let okCount = 0, errCount = 0;
+  const results = [];
+
+  for (let i = 0; i < validRows.length; i++) {
+    const row = validRows[i];
+    if (btn) btn.textContent = 'Creando ' + (i+1) + '/' + validRows.length + '...';
+
+    try {
+      const daysOff = row.days_off ? row.days_off.split(';').map(d=>d.trim()).filter(Boolean) : [];
+      const allDays = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+      const workDays = allDays.filter(d => !daysOff.includes(d));
+      const nameParts = row.full_name.split(' ');
+
+      const { error: empError } = await _e_sb.from('employees').insert({
+        id: row.id, full_name: row.full_name,
+        first_name: nameParts[0], last_name: nameParts.slice(1).join(' '),
+        birth_date: row.birth_date || null, gender: row.gender || null,
+        email: row.email, personal_email: row.personal_email || null,
+        phone: row.phone || null, address: row.address || null,
+        system_role: row.system_role, campaign_id: row.campaign_id,
+        lob: row.lob || null, queue: row.queue || null,
+        position_title: row.position_title,
+        supervisor_id: row.supervisor_id || null,
+        shift_start: row.shift_start || null, shift_end: row.shift_end || null,
+        work_days: workDays, days_off: daysOff,
+        hire_date: row.hire_date, status: 'active',
+        bank_name: row.bank_name || null, bank_account: row.bank_account || null,
+      });
+
+      if (empError) throw new Error(empError.message);
+
+      const { error: authError } = await _e_sb.auth.signUp({
+        email: row.email, password: '0000',
+        options: { data: { employee_id: row.id, nombre: row.full_name, system_role: row.system_role, must_change_password: true } }
+      });
+
+      if (authError) {
+        results.push({ id: row.id, ok: true, warning: 'Empleado creado, login falló: ' + authError.message });
+      } else {
+        results.push({ id: row.id, ok: true });
+        okCount++;
+      }
+      if (authError) okCount++;
+
+    } catch(e) {
+      errCount++;
+      results.push({ id: row.id, ok: false, error: e.message });
+    }
+  }
+
+  const resumenHTML = results.map(function(r) {
+    if (!r.ok) return '<div style="padding:6px 0;font-size:12px;color:#DC2626">❌ ' + r.id + ': ' + r.error + '</div>';
+    if (r.warning) return '<div style="padding:6px 0;font-size:12px;color:#D97706">⚠️ ' + r.id + ': ' + r.warning + '</div>';
+    return '<div style="padding:6px 0;font-size:12px;color:#16A34A">✅ ' + r.id + ' creado correctamente</div>';
+  }).join('');
+
+  document.getElementById('modalTitle').textContent = 'Resultado de la carga masiva';
+  document.getElementById('modalSub').textContent = okCount + ' creados, ' + errCount + ' con error';
+  document.getElementById('modalBody').innerHTML = '<div style="max-height:300px;overflow-y:auto">' + resumenHTML + '</div>';
+  document.getElementById('modalFooter').innerHTML = '<button class="btn-primary" onclick="closeModal();_e_cargando=true;_e_render();_e_cargarEmpleados().then(function(){_e_cargando=false;_e_render();})">Cerrar</button>';
+}
+
+function _e_abrirReingreso(empId) {
+  const emp = _e_EMPLEADOS.find(e => e.id === empId);
+  _e_abrirAlta();
+  setTimeout(function(){
+    if (!emp) return;
+
+    const setVal = function(id, val) {
+      const el = document.getElementById(id);
+      if (el && val != null && val !== '') el.value = val;
+    };
+
+    setVal('alta-id', emp.id);
+    setVal('alta-nombre', emp.full_name);
+    setVal('alta-birth', emp.birth_date);
+    setVal('alta-genero', emp.gender);
+    setVal('alta-email', emp.email);
+    setVal('alta-email-personal', emp.personal_email);
+    setVal('alta-phone', emp.phone);
+    setVal('alta-address', emp.address);
+    setVal('alta-rol', emp.system_role);
+    setVal('alta-campana', emp.campaign_id);
+    setVal('alta-lob', emp.lob);
+    setVal('alta-queue', emp.queue);
+    setVal('alta-puesto', emp.position_title);
+    setVal('alta-shift-start', emp.shift_start ? emp.shift_start.slice(0,5) : null);
+    setVal('alta-shift-end', emp.shift_end ? emp.shift_end.slice(0,5) : null);
+    setVal('alta-banco', emp.bank_name);
+    setVal('alta-cuenta', emp.bank_account);
+
+    // Supervisor — buscar la opción que coincida con supervisor_id
+    const supSelect = document.getElementById('alta-supervisor');
+    if (supSelect && emp.supervisor_id) {
+      supSelect.value = emp.supervisor_id;
+    }
+
+    // Días de descanso — marcar checkboxes según days_off guardado
+    const diasOff = emp.days_off || [];
+    document.querySelectorAll('.alta-descanso-cb').forEach(function(cb) {
+      cb.checked = diasOff.includes(cb.value);
+    });
+
+    // Fecha de ingreso queda en blanco/hoy — no se precarga (es nuevo ingreso real)
+
+    _e_checkReingreso();
+  }, 70);
+}
+
+function _e_abrirAlta() {
+  document.getElementById('modalTitle').textContent = 'Dar de alta empleado';
+  document.getElementById('modalSub').textContent = 'Crea el registro y el acceso a Impulse';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="font-size:11px;font-weight:700;color:#0F172A;text-transform:uppercase;letter-spacing:.5px;margin:4px 0 10px;padding-bottom:6px;border-bottom:1px solid #F1F5F9">Datos básicos</div>
+    <div class="modal-section">
+      <label class="modal-label">ID DE EMPLEADO</label>
+      <input type="text" id="alta-id" value="${_e_siguienteId()}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f);text-transform:uppercase"/>
+      <div style="font-size:11px;color:#94A3B8;margin-top:4px">Sugerido automáticamente — puedes editarlo.</div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">NOMBRE COMPLETO</label>
+      <input type="text" id="alta-nombre" placeholder="Nombre Apellido Apellido" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-section">
+        <label class="modal-label">FECHA DE NACIMIENTO</label>
+        <input type="date" id="alta-birth" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+      <div class="modal-section">
+        <label class="modal-label">GÉNERO</label>
+        <select id="alta-genero" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+          <option value="Masculino">Masculino</option>
+          <option value="Femenino">Femenino</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:#0F172A;text-transform:uppercase;letter-spacing:.5px;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid #F1F5F9">Contacto</div>
+    <div class="modal-section">
+      <label class="modal-label">CORREO EMPRESARIAL (login Impulse)</label>
+      <input type="email" id="alta-email" placeholder="nombre.apellido@evolvecx.io" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      <div style="font-size:11px;color:#94A3B8;margin-top:4px">Se creará con contraseña temporal <strong>0000</strong>.</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-section">
+        <label class="modal-label">CORREO PERSONAL</label>
+        <input type="email" id="alta-email-personal" placeholder="correo@gmail.com" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+      <div class="modal-section">
+        <label class="modal-label">TELÉFONO</label>
+        <input type="tel" id="alta-phone" placeholder="5512345678" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">DIRECCIÓN (calle, número, colonia, CP)</label>
+      <input type="text" id="alta-address" placeholder="Calle 123, Colonia, CP 00000" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:#0F172A;text-transform:uppercase;letter-spacing:.5px;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid #F1F5F9">Puesto y operación</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-section">
+        <label class="modal-label">ROL EN IMPULSE</label>
+        <select id="alta-rol" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+          <option value="agent">Agente</option>
+          <option value="supervisor">Supervisor</option>
+          <option value="manager">Manager</option>
+          <option value="workforce">Workforce</option>
+          <option value="people">People</option>
+          <option value="head_people">Head of People</option>
+        </select>
+      </div>
+      <div class="modal-section">
+        <label class="modal-label">CAMPAÑA</label>
+        <select id="alta-campana" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+          <option value="aplazo">Aplazo</option>
+          <option value="stori">Stori</option>
+          <option value="iforex">iForex</option>
+          <option value="casap">Casap</option>
+          <option value="cashmind">Cashmind</option>
+          <option value="clivi">Clivi</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-section">
+        <label class="modal-label">LOB</label>
+        <input type="text" id="alta-lob" placeholder="Ej: Soporte, Cobranza" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+      <div class="modal-section">
+        <label class="modal-label">QUEUE</label>
+        <input type="text" id="alta-queue" placeholder="Ej: WA Pagos" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">PUESTO</label>
+      <input type="text" id="alta-puesto" placeholder="Ej: Representante de Atención a Clientes" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">SUPERVISOR</label>
+      <select id="alta-supervisor" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+        <option value="">Sin supervisor asignado</option>
+        ${_e_EMPLEADOS.filter(e=>e.status==='active'&&['supervisor','manager'].includes(e.system_role)).map(e=>`<option value="${e.id}" data-name="${e.full_name}" data-email="${e.email||''}">${e.full_name}</option>`).join('')}
+      </select>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:#0F172A;text-transform:uppercase;letter-spacing:.5px;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid #F1F5F9">Horario</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-section">
+        <label class="modal-label">TURNO ENTRADA</label>
+        <input type="time" id="alta-shift-start" value="09:00" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+      <div class="modal-section">
+        <label class="modal-label">TURNO SALIDA</label>
+        <input type="time" id="alta-shift-end" value="18:00" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">DÍAS DE DESCANSO</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${[['monday','Lun'],['tuesday','Mar'],['wednesday','Mié'],['thursday','Jue'],['friday','Vie'],['saturday','Sáb'],['sunday','Dom']].map(([val,label])=>`
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;padding:5px 9px;border:1px solid #E2E8F0;border-radius:6px;cursor:pointer">
+            <input type="checkbox" class="alta-descanso-cb" value="${val}" ${val==='saturday'||val==='sunday'?'checked':''} style="margin:0"/> ${label}
+          </label>`).join('')}
+      </div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">FECHA DE INGRESO</label>
+      <input type="date" id="alta-hire-date" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:#0F172A;text-transform:uppercase;letter-spacing:.5px;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid #F1F5F9">Datos bancarios (opcional)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-section">
+        <label class="modal-label">BANCO</label>
+        <input type="text" id="alta-banco" placeholder="Ej: BBVA BANCOMER" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+      <div class="modal-section">
+        <label class="modal-label">CUENTA / CLABE</label>
+        <input type="text" id="alta-cuenta" placeholder="0000000000" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+    </div>`;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+    <button onclick="_e_confirmarAlta()" style="background:#0F172A;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer">Dar de alta</button>`;
+  document.getElementById('modalBackdrop').style.display = 'flex';
+  setTimeout(function(){ const el=document.getElementById('alta-hire-date'); if(el) el.value=ymd(NOW); }, 50);
+
+  // Detectar reingreso al cambiar el ID
+  setTimeout(function(){
+    const idInput = document.getElementById('alta-id');
+    if (idInput) idInput.addEventListener('input', _e_checkReingreso);
+    _e_checkReingreso();
+  }, 60);
+}
+
+function _e_checkReingreso() {
+  const id = document.getElementById('alta-id')?.value?.trim().toUpperCase();
+  const existing = _e_EMPLEADOS.find(e => e.id === id);
+  let banner = document.getElementById('alta-reingreso-banner');
+  if (existing && existing.status === 'inactive') {
+    const msg = '🔄 Este ID corresponde a <strong>' + existing.full_name + '</strong>, dado de baja el ' + (existing.termination_date||'—') + '. Se hará un reingreso y se conservará su historial.';
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'alta-reingreso-banner';
+      banner.style = 'background:#EFF6FF;border-radius:8px;padding:10px 12px;font-size:13px;color:#1D4ED8;margin-bottom:14px';
+      document.getElementById('modalBody').prepend(banner);
+    }
+    banner.innerHTML = msg;
+  } else if (banner) {
+    banner.remove();
+  }
+}
+
+async function _e_confirmarAlta() {
+  const id          = document.getElementById('alta-id')?.value?.trim().toUpperCase();
+  const nombre      = document.getElementById('alta-nombre')?.value?.trim();
+  const birth       = document.getElementById('alta-birth')?.value || null;
+  const genero      = document.getElementById('alta-genero')?.value;
+  const email       = document.getElementById('alta-email')?.value?.trim().toLowerCase();
+  const emailPers   = document.getElementById('alta-email-personal')?.value?.trim().toLowerCase() || null;
+  const phone       = document.getElementById('alta-phone')?.value?.trim() || null;
+  const address     = document.getElementById('alta-address')?.value?.trim() || null;
+  const rol         = document.getElementById('alta-rol')?.value;
+  const campana     = document.getElementById('alta-campana')?.value;
+  const lob         = document.getElementById('alta-lob')?.value?.trim() || null;
+  const queue       = document.getElementById('alta-queue')?.value?.trim() || null;
+  const puesto      = document.getElementById('alta-puesto')?.value?.trim();
+  const supSelect   = document.getElementById('alta-supervisor');
+  const supId       = supSelect?.value || null;
+  const supName     = supId ? supSelect.options[supSelect.selectedIndex].dataset.name : null;
+  const supEmail    = supId ? supSelect.options[supSelect.selectedIndex].dataset.email : null;
+  const shiftStart  = document.getElementById('alta-shift-start')?.value;
+  const shiftEnd    = document.getElementById('alta-shift-end')?.value;
+  const hireDate    = document.getElementById('alta-hire-date')?.value;
+  const banco       = document.getElementById('alta-banco')?.value?.trim() || null;
+  const cuenta      = document.getElementById('alta-cuenta')?.value?.trim() || null;
+  const diasDescanso = Array.from(document.querySelectorAll('.alta-descanso-cb:checked')).map(cb => cb.value);
+  const diasTrabajo  = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'].filter(d => !diasDescanso.includes(d));
+
+  if (!id || !id.match(/^[A-Z0-9]{4,12}$/)) { alert('El ID debe tener formato como CX00999'); return; }
+  if (!nombre) { alert('Escribe el nombre completo'); return; }
+  if (!email || !email.includes('@')) { alert('Escribe un correo empresarial válido'); return; }
+  if (!puesto) { alert('Escribe el puesto'); return; }
+  if (!hireDate) { alert('Selecciona la fecha de ingreso'); return; }
+
+  const existing = _e_EMPLEADOS.find(e => e.id === id);
+  if (existing && existing.status === 'active') {
+    alert('Ya existe un empleado ACTIVO con el ID ' + id + '. Si quieres editarlo, hazlo desde su perfil.');
+    return;
+  }
+  const isReingreso = existing && existing.status === 'inactive';
+
+  const nameParts = nombre.split(' ');
+  const firstName = nameParts[0];
+  const lastName  = nameParts.slice(1).join(' ');
+
+  const btn = document.querySelector('#modalFooter button:last-child');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creando...'; }
+
+  try {
+    const payload = {
+      full_name: nombre, first_name: firstName, last_name: lastName,
+      email, personal_email: emailPers, phone,
+      campaign_id: campana, lob, queue,
+      system_role: rol, supervisor_id: supId,
+      shift_start: shiftStart, shift_end: shiftEnd,
+      work_days: diasTrabajo,
+      days_off: diasDescanso,
+      status: 'active', hire_date: hireDate,
+      birth_date: birth, gender: genero,
+      address, supervisor_name: supName, supervisor_email: supEmail,
+      position_title: puesto, bank_name: banco, bank_account: cuenta,
+      // Limpiar campos de baja si es reingreso
+      termination_date: null, termination_type: null,
+      termination_reason: null, termination_details: null,
+      eligible_for_rehire: null,
+      updated_at: new Date().toISOString(),
+    };
+
+    let empError;
+    if (isReingreso) {
+      const res = await _e_sb.from('employees').update(payload).eq('id', id).select().single();
+      empError = res.error;
+    } else {
+      const res = await _e_sb.from('employees').insert({ id, ...payload }).select().single();
+      empError = res.error;
+    }
+
+    if (empError) throw new Error((isReingreso ? 'Error reingresando empleado: ' : 'Error creando empleado: ') + empError.message);
+
+    if (!isReingreso) {
+      const { data: authData, error: authError } = await _e_sb.auth.signUp({
+        email: email,
+        password: '0000',
+        options: {
+          data: {
+            employee_id: id, nombre: nombre,
+            system_role: rol, must_change_password: true,
+          }
+        }
+      });
+      if (authError) {
+        alert('El empleado se creó correctamente, pero el acceso a Impulse falló: ' + authError.message + '\n\nPuedes crear el acceso manualmente después desde Supabase.');
+      }
+    }
+
+    closeModal();
+    _e_cargando = true; _e_render();
+    await _e_cargarEmpleados();
+    _e_cargando = false; _e_render();
+
+  } catch(e) {
+    alert(e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Dar de alta'; }
+  }
+}
+
+
+function _e_abrirBaja(empId, isEdit) {
+  const emp = _e_EMPLEADOS.find(e => e.id === empId);
+  if (!emp) return;
+
+  // Si es edición, parsear el termination_reason guardado (formato: Categoria › Razon › Detalle — notas)
+  let preCat = '', preRazon = '', preDetalle = '', preNotas = '';
+  if (isEdit && emp.termination_reason) {
+    const parts = emp.termination_reason.split(' › ');
+    preCat = parts[0] || '';
+    preRazon = parts[1] || '';
+    let rest = parts[2] || '';
+    const dashIdx = rest.indexOf(' — ');
+    if (dashIdx >= 0) {
+      preDetalle = rest.slice(0, dashIdx);
+      preNotas = rest.slice(dashIdx + 3);
+    } else {
+      preDetalle = rest;
+    }
+  }
+
+  document.getElementById('modalTitle').textContent = (isEdit ? 'Editar motivo de baja: ' : 'Dar de baja: ') + emp.full_name;
+  document.getElementById('modalSub').textContent = emp.position_title || emp.campaign_id || '';
+  document.getElementById('modalBody').innerHTML = `
+    ${isEdit ? `<div style="background:#FFF7ED;border-radius:8px;padding:10px 12px;font-size:13px;color:#9A3412;margin-bottom:14px">
+      ✏️ Estás editando el motivo de baja de un empleado ya inactivo. El status no cambiará.
+    </div>` : `<div style="background:#FEF2F2;border-radius:8px;padding:10px 12px;font-size:13px;color:#991B1B;margin-bottom:14px">
+      ⚠️ Esta acción cambiará el status del empleado a <strong>Inactivo</strong>.
+    </div>`}
+    <div class="modal-section">
+      <label class="modal-label">TIPO DE BAJA</label>
+      <select id="baja-tipo" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+        <option value="voluntary" ${emp.termination_type==='voluntary'?'selected':''}>Voluntaria</option>
+        <option value="involuntary" ${emp.termination_type==='involuntary'?'selected':''}>Involuntaria</option>
+      </select>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">CATEGORÍA DE BAJA</label>
+      <select id="baja-categoria" onchange="_e_bajaUpdateRazon()" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+        <option value="">Selecciona una categoría...</option>
+        ${Object.keys(_E_BAJA_TREE).map(c => `<option value="${c}" ${c===preCat?'selected':''}>${c}</option>`).join('')}
+      </select>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">RAZÓN DE BAJA</label>
+      <select id="baja-razon" onchange="_e_bajaUpdateDetalle()" ${preCat?'':'disabled'} style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f);background:${preCat?'#fff':'#F8FAFC'}">
+        <option value="">Primero selecciona una categoría</option>
+      </select>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">DETALLE DE LA BAJA</label>
+      <select id="baja-detalle" ${preRazon?'':'disabled'} style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f);background:${preRazon?'#fff':'#F8FAFC'}">
+        <option value="">Primero selecciona una razón</option>
+      </select>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">NOTAS ADICIONALES (opcional)</label>
+      <textarea id="baja-motivo" rows="2" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)" placeholder="Detalles adicionales sobre la baja...">${preNotas}</textarea>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">FECHA DE BAJA</label>
+      <input type="date" id="baja-fecha" value="${emp.termination_date||''}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">ELEGIBLE PARA RECONTRATACIÓN</label>
+      <select id="baja-rehire" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+        <option value="Yes" ${emp.eligible_for_rehire==='Yes'?'selected':''}>Sí</option>
+        <option value="No" ${emp.eligible_for_rehire==='No'?'selected':''}>No</option>
+        <option value="Conditional" ${emp.eligible_for_rehire==='Conditional'?'selected':''}>Condicional</option>
+      </select>
+    </div>`;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+    <button onclick="_e_confirmarBaja('${empId}', ${isEdit ? 'true' : 'false'})" style="background:${isEdit?'#0F172A':'#DC2626'};color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer">${isEdit ? 'Guardar cambios' : 'Confirmar baja'}</button>`;
+  document.getElementById('modalBackdrop').style.display = 'flex';
+
+  // Precargar razón y detalle si es edición (después de que el DOM exista)
+  setTimeout(function(){
+    if (!emp.termination_date) {
+      const el = document.getElementById('baja-fecha'); if (el) el.value = ymd(NOW);
+    }
+    if (preCat) {
+      _e_bajaUpdateRazon();
+      setTimeout(function(){
+        const razonSel = document.getElementById('baja-razon');
+        if (razonSel) razonSel.value = preRazon;
+        if (preRazon) {
+          _e_bajaUpdateDetalle();
+          setTimeout(function(){
+            const detalleSel = document.getElementById('baja-detalle');
+            if (detalleSel) detalleSel.value = preDetalle;
+          }, 30);
+        }
+      }, 30);
+    }
+  }, 50);
+}
+
+function _e_bajaUpdateRazon() {
+  const cat = document.getElementById('baja-categoria')?.value;
+  const razonSel = document.getElementById('baja-razon');
+  const detalleSel = document.getElementById('baja-detalle');
+  if (!cat || !_E_BAJA_TREE[cat]) {
+    razonSel.disabled = true; razonSel.style.background = '#F8FAFC';
+    razonSel.innerHTML = '<option value="">Primero selecciona una categoría</option>';
+    detalleSel.disabled = true; detalleSel.style.background = '#F8FAFC';
+    detalleSel.innerHTML = '<option value="">Primero selecciona una razón</option>';
+    return;
+  }
+  const razones = Object.keys(_E_BAJA_TREE[cat]);
+  razonSel.disabled = false; razonSel.style.background = '#fff';
+  razonSel.innerHTML = '<option value="">Selecciona una razón...</option>' +
+    razones.map(r => `<option value="${r}">${r}</option>`).join('');
+  detalleSel.disabled = true; detalleSel.style.background = '#F8FAFC';
+  detalleSel.innerHTML = '<option value="">Primero selecciona una razón</option>';
+}
+
+function _e_bajaUpdateDetalle() {
+  const cat = document.getElementById('baja-categoria')?.value;
+  const razon = document.getElementById('baja-razon')?.value;
+  const detalleSel = document.getElementById('baja-detalle');
+  if (!cat || !razon || !_E_BAJA_TREE[cat] || !_E_BAJA_TREE[cat][razon]) {
+    detalleSel.disabled = true; detalleSel.style.background = '#F8FAFC';
+    detalleSel.innerHTML = '<option value="">Primero selecciona una razón</option>';
+    return;
+  }
+  const detalles = _E_BAJA_TREE[cat][razon];
+  detalleSel.disabled = false; detalleSel.style.background = '#fff';
+  detalleSel.innerHTML = '<option value="">Selecciona un detalle...</option>' +
+    detalles.map(d => `<option value="${d}">${d}</option>`).join('');
+}
+
+async function _e_confirmarBaja(empId, isEdit) {
+  const tipo      = document.getElementById('baja-tipo')?.value || 'voluntary';
+  const categoria  = document.getElementById('baja-categoria')?.value || '';
+  const razon      = document.getElementById('baja-razon')?.value || '';
+  const detalle    = document.getElementById('baja-detalle')?.value || '';
+  const notas      = document.getElementById('baja-motivo')?.value?.trim() || '';
+  const fecha      = document.getElementById('baja-fecha')?.value || ymd(NOW);
+  const rehire     = document.getElementById('baja-rehire')?.value || 'No';
+
+  if (!categoria) { alert('Selecciona la categoría de baja'); return; }
+  if (!razon)     { alert('Selecciona la razón de baja'); return; }
+  if (!detalle)   { alert('Selecciona el detalle de la baja'); return; }
+
+  const motivoCompleto = categoria + ' › ' + razon + ' › ' + detalle + (notas ? ' — ' + notas : '');
+
+  const updatePayload = {
+    termination_type: tipo,
+    termination_reason: motivoCompleto,
+    termination_details: detalle,
+    termination_date: fecha,
+    eligible_for_rehire: rehire,
+    updated_at: new Date().toISOString(),
+  };
+  if (!isEdit) updatePayload.status = 'inactive';
+
+  const { data, error } = await _e_sb.from('employees').update(updatePayload).eq('id', empId).select();
+  if (error) { alert('Error: ' + error.message); return; }
+  if (!data || data.length === 0) {
+    alert('La actualización no afectó ningún registro. Puede ser un problema de permisos (RLS) en Supabase.');
+    return;
+  }
+
+  // Registrar el período en employment_history (solo si es baja nueva, no edición)
+  if (!isEdit) {
+    const emp = _e_EMPLEADOS.find(e => e.id === empId);
+    await _e_sb.from('employment_history').insert({
+      employee_id: empId,
+      hire_date: emp?.hire_date || null,
+      termination_date: fecha,
+      termination_type: tipo,
+      termination_reason: motivoCompleto,
+      termination_details: detalle,
+      eligible_for_rehire: rehire,
+      position_title: emp?.position_title || null,
+      campaign_id: emp?.campaign_id || null,
+    });
+  }
+
+  closeModal();
+  _e_perfilAbierto = null;
+  _e_cargando = true; _e_render();
+  await _e_cargarEmpleados();
+  _e_cargando = false; _e_render();
+}
+
 
 window['_init_tickets']=function(){
-  _t_cargando=true; _t_render();
-  _t_cargarTickets().then(ok=>{
-    _t_cargando=false; _t_render();
-  });
+  _t_cargando=true; _t_detalleId=null;
+  _t_vistaTickets = ['supervisor','manager','people','head_people'].includes(currentRole) ? 'todos' : 'mis';
+  _t_render();
+  _t_cargarTickets().then(ok=>{ _t_cargando=false; _t_render(); });
 };
 window['_rerender_tickets']=function(){ if(typeof _t_render==='function')_t_render(); };
+
 window['_init_permutas']=function(){
   _p_cargando=true; _p_render();
-  _p_cargarDatos().then(ok=>{
-    _p_cargando=false; _p_render();
-  });
+  _p_cargarDatos().then(ok=>{ _p_cargando=false; _p_render(); });
 };
 window['_rerender_permutas']=function(){ if(typeof _p_render==='function')_p_render(); };
+
 window['_init_vacaciones']=function(){
   _v_cargando=true; _v_render();
-  _v_cargarDatos().then(ok=>{
-    _v_cargando=false;
-    _v_render();
-  });
+  _v_cargarDatos().then(ok=>{ _v_cargando=false; _v_render(); });
 };
 window['_rerender_vacaciones']=function(){ if(typeof _v_render==='function')_v_render(); };
+
 window['_init_disciplinario']=function(){
   _d_cargando=true; _d_render();
-  _d_cargarDatos().then(ok=>{
-    _d_cargando=false; _d_render();
-  });
+  _d_cargarDatos().then(ok=>{ _d_cargando=false; _d_render(); });
 };
 window['_rerender_disciplinario']=function(){ if(typeof _d_render==='function')_d_render(); };
 
 window['_init_equipo']=function(){
   _e_cargando=true; _e_render();
-  _e_cargarEmpleados().then(ok=>{
+  Promise.all([_e_cargarEmpleados(), _e_cargarHistory()]).then(function(results){
+    const ok = results[0];
     _e_cargando=false;
-    if(ok) _e_render();
-    else {
-      document.getElementById('content').innerHTML=
-        '<div style="text-align:center;padding:60px;color:#DC2626"><div style="font-size:32px;margin-bottom:12px">⚠️</div><p>Error cargando empleados desde Supabase. Verifica la conexión.</p></div>';
-    }
+    if (ok) _e_render();
+    else document.getElementById('content').innerHTML='<div style="text-align:center;padding:60px;color:#DC2626"><p style="font-weight:600">Error cargando empleados desde Supabase. Verifica la conexión.</p></div>';
   });
 };
 window['_rerender_equipo']=function(){ _e_render(); };
+
+
 // ── ARRANQUE — Auth primero ──
 _initImpulse();
 
