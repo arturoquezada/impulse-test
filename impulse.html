@@ -6544,6 +6544,7 @@ function _e_renderPerfil(empId) {
       <button onclick="_e_perfilAbierto=null;_e_render()" style="border:1px solid #E2E8F0;border-radius:8px;padding:7px 14px;background:#fff;cursor:pointer;font-size:12px;font-weight:600">← Volver</button>
       <div style="font-size:15px;font-weight:700;flex:1">${e.full_name}</div>
       ${_e_statusBadge(e.status)}
+      ${canManage?`<button onclick="_e_abrirEditar('${e.id}')" style="padding:7px 14px;background:#F0F9FF;color:#0369A1;border:1px solid #7DD3FC;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✏️ Editar datos</button>`:''}
       ${canBaja?`<button onclick="_e_abrirBaja('${e.id}')" style="padding:7px 14px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🔴 Dar de baja</button>`:''}
       ${canEditBaja?`<button onclick="_e_abrirBaja('${e.id}',true)" style="padding:7px 14px;background:#FFF7ED;color:#9A3412;border:1px solid #FDBA74;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✏️ Editar motivo de baja</button>`:''}
       ${canEditBaja?`<button onclick="_e_abrirReingreso('${e.id}')" style="padding:7px 14px;background:#EFF6FF;color:#1D4ED8;border:1px solid #93C5FD;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🔄 Reingresar</button>`:''}
@@ -6899,6 +6900,212 @@ function _e_abrirReingreso(empId) {
 
     _e_checkReingreso();
   }, 70);
+}
+
+function _e_abrirEditar(empId) {
+  const e = _e_EMPLEADOS.find(x => x.id === empId);
+  if (!e) { alert('Empleado no encontrado'); return; }
+
+  document.getElementById('modalTitle').textContent = 'Editar datos — ' + e.full_name;
+  document.getElementById('modalSub').textContent = 'Campaña, horario, puesto, supervisor y más';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="font-size:11px;font-weight:700;color:#0F172A;text-transform:uppercase;letter-spacing:.5px;margin:4px 0 10px;padding-bottom:6px;border-bottom:1px solid #F1F5F9">Datos básicos</div>
+    <div class="modal-section">
+      <label class="modal-label">ID DE EMPLEADO</label>
+      <input type="text" value="${e.id}" disabled style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f);background:#F8FAFC;color:#64748B"/>
+      <div style="font-size:11px;color:#94A3B8;margin-top:4px">El ID no se puede cambiar.</div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">NOMBRE COMPLETO</label>
+      <input type="text" id="edit-nombre" value="${e.full_name||''}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-section">
+        <label class="modal-label">FECHA DE NACIMIENTO</label>
+        <input type="date" id="edit-birth" value="${e.birth_date||''}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+      <div class="modal-section">
+        <label class="modal-label">GÉNERO</label>
+        <select id="edit-genero" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+          <option value="Masculino" ${e.gender==='Masculino'?'selected':''}>Masculino</option>
+          <option value="Femenino" ${e.gender==='Femenino'?'selected':''}>Femenino</option>
+          <option value="Otro" ${e.gender==='Otro'?'selected':''}>Otro</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:#0F172A;text-transform:uppercase;letter-spacing:.5px;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid #F1F5F9">Contacto</div>
+    <div class="modal-section">
+      <label class="modal-label">CORREO EMPRESARIAL (login Impulse)</label>
+      <input type="email" id="edit-email" value="${e.email||''}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      <div style="font-size:11px;color:#94A3B8;margin-top:4px">Si lo cambias, el login de auth.users hay que actualizarlo aparte (esto solo cambia el dato en employees).</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-section">
+        <label class="modal-label">CORREO PERSONAL</label>
+        <input type="email" id="edit-email-personal" value="${e.personal_email||''}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+      <div class="modal-section">
+        <label class="modal-label">TELÉFONO</label>
+        <input type="tel" id="edit-phone" value="${e.phone||''}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">DIRECCIÓN (calle, número, colonia, CP)</label>
+      <input type="text" id="edit-address" value="${(e.address||'').replace(/"/g,'&quot;')}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:#0F172A;text-transform:uppercase;letter-spacing:.5px;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid #F1F5F9">Puesto y operación</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-section">
+        <label class="modal-label">ROL EN IMPULSE</label>
+        <select id="edit-rol" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+          ${['agent','supervisor','manager','workforce','people','head_people','ceo'].map(r=>`<option value="${r}" ${e.system_role===r?'selected':''}>${_e_roleLabel(r)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="modal-section">
+        <label class="modal-label">CAMPAÑA PRINCIPAL</label>
+        <select id="edit-campana" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+          ${['aplazo','stori','iforex','casap','cashmind','clivi','admin','liderazgo','naya','sanarai','expx','nido','sueno_americano'].map(c=>`<option value="${c}" ${e.campaign_id===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">CAMPAÑA SECUNDARIA (opcional, solo si la persona dobla turno en otra campaña)</label>
+      <select id="edit-campana-sec" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+        <option value="">Ninguna</option>
+        ${['aplazo','stori','iforex','casap','cashmind','clivi','admin','liderazgo','naya','sanarai','expx','nido','sueno_americano'].map(c=>`<option value="${c}" ${e.secondary_campaign===c?'selected':''}>${c}</option>`).join('')}
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-section">
+        <label class="modal-label">LOB</label>
+        <input type="text" id="edit-lob" value="${e.lob||''}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+      <div class="modal-section">
+        <label class="modal-label">QUEUE</label>
+        <input type="text" id="edit-queue" value="${e.queue||''}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">PUESTO</label>
+      <input type="text" id="edit-puesto" value="${e.position_title||''}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">SUPERVISOR</label>
+      <select id="edit-supervisor" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+        <option value="">Sin supervisor asignado</option>
+        ${_e_EMPLEADOS.filter(x=>x.status==='active'&&['supervisor','manager'].includes(x.system_role)&&x.id!==e.id).map(x=>`<option value="${x.id}" data-name="${x.full_name}" data-email="${x.email||''}" ${e.supervisor_id===x.id?'selected':''}>${x.full_name}</option>`).join('')}
+      </select>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:#0F172A;text-transform:uppercase;letter-spacing:.5px;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid #F1F5F9">Horario</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-section">
+        <label class="modal-label">TURNO ENTRADA</label>
+        <input type="time" id="edit-shift-start" value="${(e.shift_start||'09:00').slice(0,5)}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+      <div class="modal-section">
+        <label class="modal-label">TURNO SALIDA</label>
+        <input type="time" id="edit-shift-end" value="${(e.shift_end||'18:00').slice(0,5)}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">DÍAS DE DESCANSO</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${[['monday','Lun'],['tuesday','Mar'],['wednesday','Mié'],['thursday','Jue'],['friday','Vie'],['saturday','Sáb'],['sunday','Dom']].map(([val,label])=>`
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;padding:5px 9px;border:1px solid #E2E8F0;border-radius:6px;cursor:pointer">
+            <input type="checkbox" class="edit-descanso-cb" value="${val}" ${(e.days_off||[]).includes(val)?'checked':''} style="margin:0"/> ${label}
+          </label>`).join('')}
+      </div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">FECHA DE INGRESO</label>
+      <input type="date" id="edit-hire-date" value="${e.hire_date||''}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:#0F172A;text-transform:uppercase;letter-spacing:.5px;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid #F1F5F9">Datos bancarios (opcional)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-section">
+        <label class="modal-label">BANCO</label>
+        <input type="text" id="edit-banco" value="${e.bank_name||''}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+      <div class="modal-section">
+        <label class="modal-label">CUENTA / CLABE</label>
+        <input type="text" id="edit-cuenta" value="${e.bank_account||''}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+    </div>`;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+    <button onclick="_e_confirmarEditar('${e.id}')" style="background:#0F172A;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer">Guardar cambios</button>`;
+  document.getElementById('modalBackdrop').style.display = 'flex';
+}
+
+async function _e_confirmarEditar(empId) {
+  const nombre      = document.getElementById('edit-nombre')?.value?.trim();
+  const birth       = document.getElementById('edit-birth')?.value || null;
+  const genero      = document.getElementById('edit-genero')?.value;
+  const email       = document.getElementById('edit-email')?.value?.trim().toLowerCase();
+  const emailPers   = document.getElementById('edit-email-personal')?.value?.trim().toLowerCase() || null;
+  const phone       = document.getElementById('edit-phone')?.value?.trim() || null;
+  const address     = document.getElementById('edit-address')?.value?.trim() || null;
+  const rol         = document.getElementById('edit-rol')?.value;
+  const campana     = document.getElementById('edit-campana')?.value;
+  const campanaSec  = document.getElementById('edit-campana-sec')?.value || null;
+  const lob         = document.getElementById('edit-lob')?.value?.trim() || null;
+  const queue       = document.getElementById('edit-queue')?.value?.trim() || null;
+  const puesto      = document.getElementById('edit-puesto')?.value?.trim();
+  const supSelect   = document.getElementById('edit-supervisor');
+  const supId       = supSelect?.value || null;
+  const supName     = supId ? supSelect.options[supSelect.selectedIndex].dataset.name : null;
+  const supEmail    = supId ? supSelect.options[supSelect.selectedIndex].dataset.email : null;
+  const shiftStart  = document.getElementById('edit-shift-start')?.value;
+  const shiftEnd    = document.getElementById('edit-shift-end')?.value;
+  const hireDate    = document.getElementById('edit-hire-date')?.value;
+  const banco       = document.getElementById('edit-banco')?.value?.trim() || null;
+  const cuenta      = document.getElementById('edit-cuenta')?.value?.trim() || null;
+  const diasDescanso = Array.from(document.querySelectorAll('.edit-descanso-cb:checked')).map(cb => cb.value);
+  const diasTrabajo  = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'].filter(d => !diasDescanso.includes(d));
+
+  if (!nombre) { alert('Escribe el nombre completo'); return; }
+  if (!email || !email.includes('@')) { alert('Escribe un correo empresarial válido'); return; }
+  if (!puesto) { alert('Escribe el puesto'); return; }
+  if (!hireDate) { alert('Selecciona la fecha de ingreso'); return; }
+  if (campanaSec && campanaSec === campana) { alert('La campaña secundaria no puede ser igual a la principal'); return; }
+
+  const nameParts = nombre.split(' ');
+  const firstName = nameParts[0];
+  const lastName  = nameParts.slice(1).join(' ');
+
+  const btn = document.querySelector('#modalFooter button:last-child');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+
+  try {
+    const payload = {
+      full_name: nombre, first_name: firstName, last_name: lastName,
+      email, personal_email: emailPers, phone, address,
+      system_role: rol, campaign_id: campana, secondary_campaign: campanaSec,
+      lob, queue, position_title: puesto,
+      supervisor_id: supId, supervisor_name: supName, supervisor_email: supEmail,
+      shift_start: shiftStart, shift_end: shiftEnd,
+      work_days: diasTrabajo, days_off: diasDescanso,
+      hire_date: hireDate, birth_date: birth, gender: genero,
+      bank_name: banco, bank_account: cuenta,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await _e_sb.from('employees').update(payload).eq('id', empId);
+    if (error) throw new Error('Error guardando cambios: ' + error.message);
+
+    closeModal();
+    _e_cargando = true; _e_render();
+    await _e_cargarEmpleados();
+    _e_cargando = false; _e_render();
+
+  } catch(e) {
+    alert(e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar cambios'; }
+  }
 }
 
 function _e_abrirAlta() {
