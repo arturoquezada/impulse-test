@@ -7139,9 +7139,8 @@ async function _e_confirmarEditar(empId) {
 
     if (sueldo !== '' && sueldo !== undefined) {
       const salaryMonthly = parseFloat(sueldo);
-      const salaryDaily = Math.round((salaryMonthly / 30) * 100) / 100;
       const { error: prError } = await _e_sb.from('employees_payroll').upsert({
-        employee_id: empId, salary_monthly: salaryMonthly, salary_daily: salaryDaily,
+        employee_id: empId, salary_monthly: salaryMonthly,
         bank: prBanco, clabe, rfc, curp, nss,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'employee_id' });
