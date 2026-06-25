@@ -6336,7 +6336,7 @@ function _e_visibleEmpleados() {
 
 
 // ── REPORTES DE TALENT ──────────────────────────────────────────────
-let _e_mainTab = 'lista';
+let _e_mainTab = 'perfil';
 let _e_history = [];
 let _e_reportPeriodo = 'mes';
 let _e_reportDesde = '';
@@ -6363,9 +6363,12 @@ function _e_rangoFechas(periodo) {
 }
 
 function _e_renderTabs() {
+  const esGestionTotal = ['people','head_people','ceo'].includes(currentRole);
+  const tabBtn = (id, icon, label) => `<button onclick="_e_mainTab='${id}';_e_render()" style="padding:9px 18px;border:none;border-bottom:2px solid ${_e_mainTab===id?'#0F172A':'transparent'};margin-bottom:-2px;font-size:12px;font-weight:600;font-family:var(--f);cursor:pointer;background:transparent;color:${_e_mainTab===id?'#0F172A':'#94A3B8'}">${icon} ${label}</button>`;
   return `<div style="display:flex;gap:2px;margin-bottom:16px;border-bottom:2px solid #E2E8F0">
-    <button onclick="_e_mainTab='lista';_e_render()" style="padding:9px 18px;border:none;border-bottom:2px solid ${_e_mainTab==='lista'?'#0F172A':'transparent'};margin-bottom:-2px;font-size:12px;font-weight:600;font-family:var(--f);cursor:pointer;background:transparent;color:${_e_mainTab==='lista'?'#0F172A':'#94A3B8'}">👥 Lista</button>
-    <button onclick="_e_mainTab='reportes';_e_render()" style="padding:9px 18px;border:none;border-bottom:2px solid ${_e_mainTab==='reportes'?'#0F172A':'transparent'};margin-bottom:-2px;font-size:12px;font-weight:600;font-family:var(--f);cursor:pointer;background:transparent;color:${_e_mainTab==='reportes'?'#0F172A':'#94A3B8'}">📊 Reportes</button>
+    ${!esGestionTotal ? tabBtn('perfil','🙋','Mi Perfil') : ''}
+    ${tabBtn('lista','👥', esGestionTotal ? 'Lista' : 'Mi Equipo')}
+    ${tabBtn('reportes','📊','Reportes')}
   </div>`;
 }
 
@@ -6389,13 +6392,15 @@ function _e_barRow(label, count, total, color) {
   </div>`;
 }
 
-function _e_renderReportes() {
-  const activos = _e_EMPLEADOS.filter(e => e.status === 'active');
-  const totalHistorico = _e_EMPLEADOS.length;
+function _e_renderReportes(scopeIds) {
+  const _eAll = scopeIds ? _e_EMPLEADOS.filter(e => scopeIds.includes(e.id)) : _e_EMPLEADOS;
+  const _hAll = scopeIds ? _e_history.filter(h => scopeIds.includes(h.employee_id)) : _e_history;
+  const activos = _eAll.filter(e => e.status === 'active');
+  const totalHistorico = _eAll.length;
   const { desde, hasta } = _e_rangoFechas(_e_reportPeriodo);
 
   // Bajas en el rango seleccionado
-  const bajasRango = _e_history.filter(h => h.termination_date && h.termination_date >= desde && h.termination_date <= hasta);
+  const bajasRango = _hAll.filter(h => h.termination_date && h.termination_date >= desde && h.termination_date <= hasta);
   const altasRango = activos.filter(e => e.hire_date && e.hire_date >= desde && e.hire_date <= hasta);
 
   // Headcount promedio del periodo (aprox: activos actuales + bajas del periodo)
@@ -6440,7 +6445,7 @@ function _e_renderReportes() {
     supervisores[e.supervisor_name].activos++;
   });
   bajasRango.forEach(h => {
-    const emp = _e_EMPLEADOS.find(e => e.id === h.employee_id);
+    const emp = _eAll.find(e => e.id === h.employee_id);
     const supName = emp?.supervisor_name;
     if (!supName) return;
     if (!supervisores[supName]) supervisores[supName] = { activos: 0, bajas: 0 };
@@ -6645,50 +6650,117 @@ function _e_renderLista() {
   </div>`;
 }
 
+function _e_tenure(hireDate) {
+  if (!hireDate) return '—';
+  const dias = diffDays(hireDate, ymd(NOW));
+  if (dias < 0) return '—';
+  const totalMeses = Math.floor(dias / 30.44);
+  const anios = Math.floor(totalMeses / 12);
+  const meses = totalMeses % 12;
+  if (anios === 0) return `${meses} mes${meses!==1?'es':''}`;
+  return `${anios} año${anios!==1?'s':''}, ${meses} mes${meses!==1?'es':''}`;
+}
+
+function _e_avatarColor(seed) {
+  const colors = ['#2563EB','#7C3AED','#DB2777','#D97706','#059669','#0891B2','#DC2626','#4F46E5'];
+  let hash = 0;
+  for (let i = 0; i < (seed||'').length; i++) hash = (hash * 31 + seed.charCodeAt(i)) % colors.length;
+  return colors[Math.abs(hash) % colors.length];
+}
+
 function _e_renderPerfil(empId) {
   const e = _e_EMPLEADOS.find(x => x.id === empId);
   if (!e) return '<div style="text-align:center;padding:40px;color:#94A3B8">Empleado no encontrado</div>';
   const canManage = ['people','head_people'].includes(currentRole);
   const canBaja = canManage && e.status === 'active';
   const canEditBaja = canManage && e.status === 'inactive';
+  const esMiPropioPerfil = e.id === (ROLES[currentRole]||{}).id;
+  const iniciales = (e.full_name||'').split(' ').filter(Boolean).slice(0,2).map(n=>n[0]).join('').toUpperCase();
 
-  return `<div style="max-width:800px;margin:0 auto">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap">
-      <button onclick="_e_perfilAbierto=null;_e_render()" style="border:1px solid #E2E8F0;border-radius:8px;padding:7px 14px;background:#fff;cursor:pointer;font-size:12px;font-weight:600">← Volver</button>
-      <div style="font-size:15px;font-weight:700;flex:1">${e.full_name}</div>
-      ${_e_statusBadge(e.status)}
-      ${canManage?`<button onclick="_e_abrirEditar('${e.id}')" style="padding:7px 14px;background:#F0F9FF;color:#0369A1;border:1px solid #7DD3FC;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✏️ Editar datos</button>`:''}
-      ${canBaja?`<button onclick="_e_abrirBaja('${e.id}')" style="padding:7px 14px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🔴 Dar de baja</button>`:''}
-      ${canEditBaja?`<button onclick="_e_abrirBaja('${e.id}',true)" style="padding:7px 14px;background:#FFF7ED;color:#9A3412;border:1px solid #FDBA74;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✏️ Editar motivo de baja</button>`:''}
-      ${canEditBaja?`<button onclick="_e_abrirReingreso('${e.id}')" style="padding:7px 14px;background:#EFF6FF;color:#1D4ED8;border:1px solid #93C5FD;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🔄 Reingresar</button>`:''}
-    </div>
-    ${e.status === 'inactive' ? `<div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:20px;margin-bottom:16px">
-      <div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px">Motivo de baja</div>
-      ${[['Tipo de baja', e.termination_type === 'voluntary' ? 'Voluntaria' : e.termination_type === 'involuntary' ? 'Involuntaria' : (e.termination_type||'—')],
-         ['Motivo completo', e.termination_reason || '—'],
-         ['Detalle específico', e.termination_details || '—'],
-         ['Fecha de baja', e.termination_date || '—'],
-         ['Elegible recontratación', e.eligible_for_rehire === 'Yes' ? 'Sí' : e.eligible_for_rehire === 'No' ? 'No' : e.eligible_for_rehire === 'Conditional' ? 'Condicional' : (e.eligible_for_rehire||'—')],
-        ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #F1F5F9;font-size:13px;gap:12px"><span style="color:#64748B;flex-shrink:0">${l}</span><span style="font-weight:600;color:#0F172A;text-align:right">${v}</span></div>`).join('')}
-    </div>` : ''}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:20px">
-        <div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px">Información</div>
-        ${[['ID',e.id],['Email',e.email||'—'],['Teléfono',e.phone||'—'],
-           ['Campaña',e.campaign_id||'—'],['LOB',e.lob||'—'],
-           ['Rol',_e_roleLabel(e.system_role)],['Puesto',e.position_title||'—'],
-           ['Supervisor',e.supervisor_name||'—']
-          ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #F1F5F9;font-size:13px"><span style="color:#64748B">${l}</span><span style="font-weight:600;color:#0F172A;text-align:right;max-width:60%">${v}</span></div>`).join('')}
+  const diasOffLabel = (e.days_off||[]).length
+    ? e.days_off.map(d=>({monday:'Lunes',tuesday:'Martes',wednesday:'Miércoles',thursday:'Jueves',friday:'Viernes',saturday:'Sábado',sunday:'Domingo'}[d]||d)).join(' y ')
+    : '—';
+  const horasSemana = (e.shift_start && e.shift_end) ? (() => {
+    const [h1,m1] = e.shift_start.split(':').map(Number), [h2,m2] = e.shift_end.split(':').map(Number);
+    let horasDia = (h2+m2/60) - (h1+m1/60); if (horasDia < 0) horasDia += 24;
+    const diasTrabajo = 7 - (e.days_off||[]).length;
+    return Math.round(horasDia * diasTrabajo);
+  })() : null;
+
+  const section = (title, rows) => `
+    <div style="padding:20px 0;border-bottom:1px solid #F1F5F9">
+      <div style="font-size:13px;font-weight:700;color:#0F172A;margin-bottom:14px">${title}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px 32px">
+        ${rows.map(([l,v])=>`<div><span style="font-size:13px;font-weight:700;color:#0F172A">${l}: </span><span style="font-size:13px;color:#334155">${v}</span></div>`).join('')}
       </div>
-      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:20px">
-        <div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px">Laboral</div>
-        ${[['Fecha ingreso',e.hire_date||'—'],
-           ['Fecha baja',e.termination_date||'—'],
-           ['Turno',e.shift_start?e.shift_start.slice(0,5)+' – '+(e.shift_end||'').slice(0,5):'—'],
-           ['Camp. secundaria',e.secondary_campaign||'—'],
-           ['Nacimiento',e.birth_date||'—'],
-           ['Género',e.gender||'—']
-          ].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #F1F5F9;font-size:13px"><span style="color:#64748B">${l}</span><span style="font-weight:600;color:#0F172A">${v}</span></div>`).join('')}
+    </div>`;
+
+  return `<div style="max-width:760px;margin:0 auto">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      ${!esMiPropioPerfil?`<button onclick="_e_perfilAbierto=null;_e_render()" style="border:1px solid #E2E8F0;border-radius:8px;padding:7px 14px;background:#fff;cursor:pointer;font-size:12px;font-weight:600">← Volver</button>`:'<div></div>'}
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${canManage?`<button onclick="_e_abrirEditar('${e.id}')" style="padding:7px 14px;background:#F0F9FF;color:#0369A1;border:1px solid #7DD3FC;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✏️ Editar datos</button>`:''}
+        ${canBaja?`<button onclick="_e_abrirBaja('${e.id}')" style="padding:7px 14px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🔴 Dar de baja</button>`:''}
+        ${canEditBaja?`<button onclick="_e_abrirBaja('${e.id}',true)" style="padding:7px 14px;background:#FFF7ED;color:#9A3412;border:1px solid #FDBA74;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✏️ Editar motivo de baja</button>`:''}
+        ${canEditBaja?`<button onclick="_e_abrirReingreso('${e.id}')" style="padding:7px 14px;background:#EFF6FF;color:#1D4ED8;border:1px solid #93C5FD;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🔄 Reingresar</button>`:''}
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:18px;padding-bottom:20px;border-bottom:1px solid #F1F5F9">
+      <div style="width:72px;height:72px;border-radius:50%;background:${_e_avatarColor(e.id)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;flex-shrink:0">${iniciales||'?'}</div>
+      <div>
+        <div style="font-size:20px;font-weight:800;color:#0F172A">${e.full_name}</div>
+        <div style="font-size:14px;color:#64748B;margin-top:2px">${e.position_title || _e_roleLabel(e.system_role)}</div>
+        <div style="margin-top:8px">${_e_statusBadge(e.status)}</div>
+      </div>
+    </div>
+
+    ${e.status === 'inactive' ? section('Motivo de baja', [
+        ['Tipo', e.termination_type === 'voluntary' ? 'Voluntaria' : e.termination_type === 'involuntary' ? 'Involuntaria' : (e.termination_type||'—')],
+        ['Fecha de baja', e.termination_date || '—'],
+        ['Motivo', e.termination_reason || '—'],
+        ['Detalle', e.termination_details || '—'],
+        ['Elegible recontratación', e.eligible_for_rehire === 'Yes' ? 'Sí' : e.eligible_for_rehire === 'No' ? 'No' : e.eligible_for_rehire === 'Conditional' ? 'Condicional' : (e.eligible_for_rehire||'—')],
+      ]) : ''}
+
+    ${section('Resumen', [
+      ['Employee ID', e.id],
+      ['Email', e.email || '—'],
+    ])}
+
+    ${section('Detalles del puesto', [
+      ['Puesto', e.position_title || '—'],
+      ['Rol', _e_roleLabel(e.system_role)],
+      ['Campaña', e.campaign_id || '—'],
+      ['Campaña secundaria', e.secondary_campaign || '—'],
+      ['LOB', e.lob || '—'],
+      ['Queue', e.queue || '—'],
+    ])}
+
+    ${section('Horario', [
+      ['Turno', e.shift_start ? e.shift_start.slice(0,5)+' – '+(e.shift_end||'').slice(0,5) : '—'],
+      ['Horas semanales', horasSemana ? horasSemana+' hrs' : '—'],
+      ['Días de descanso', diasOffLabel],
+    ])}
+
+    ${section('Supervisor', [
+      ['Nombre', e.supervisor_name || '—'],
+      ['Email', e.supervisor_email || '—'],
+    ])}
+
+    ${section('Datos personales', [
+      ['Teléfono', e.phone || '—'],
+      ['Correo personal', e.personal_email || '—'],
+      ['Fecha de nacimiento', e.birth_date || '—'],
+      ['Género', e.gender || '—'],
+      ['Dirección', e.address || '—'],
+    ])}
+
+    <div style="padding:20px 0">
+      <div style="font-size:13px;font-weight:700;color:#0F172A;margin-bottom:14px">Empleo</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px 32px">
+        <div><span style="font-size:13px;font-weight:700;color:#0F172A">Fecha de ingreso: </span><span style="font-size:13px;color:#334155">${e.hire_date || '—'}</span></div>
+        <div><span style="font-size:13px;font-weight:700;color:#0F172A">Antigüedad: </span><span style="font-size:13px;color:#334155">${_e_tenure(e.hire_date)}</span></div>
       </div>
     </div>
   </div>`;
@@ -6706,7 +6778,23 @@ function _e_render() {
     return;
   }
   if (_e_perfilAbierto) { c.innerHTML = _e_renderPerfil(_e_perfilAbierto); return; }
-  if (!['people','head_people','ceo'].includes(currentRole)) { c.innerHTML = _e_renderPerfil(ROLES[currentRole].id); return; }
+
+  // Agente: solo su propio perfil, sin tabs (no tiene equipo que ver)
+  if (currentRole === 'agent') { c.innerHTML = _e_renderPerfil(ROLES[currentRole].id); return; }
+
+  const esGestionTotal = ['people','head_people','ceo'].includes(currentRole);
+
+  // Supervisor/Manager/Workforce: tabs propias (Mi Perfil / Mi Equipo / Reportes), default Mi Perfil
+  if (!esGestionTotal) {
+    if (!['lista','reportes','perfil'].includes(_e_mainTab)) _e_mainTab = 'perfil';
+    if (_e_mainTab === 'perfil') { c.innerHTML = _e_renderTabs() + _e_renderPerfil(ROLES[currentRole].id); return; }
+    const ro = ROLES[currentRole];
+    const scopeIds = currentRole === 'supervisor'
+      ? _e_EMPLEADOS.filter(e => e.supervisor_id === ro.id || e.id === ro.id).map(e => e.id)
+      : null; // manager: toda la empresa, sin acotar
+    c.innerHTML = _e_renderTabs() + (_e_mainTab === 'reportes' ? _e_renderReportes(scopeIds) : _e_renderLista());
+    return;
+  }
 
   const canSeeReportes = ['head_people','people','manager','ceo'].includes(currentRole);
   if (!canSeeReportes) { c.innerHTML = _e_renderLista(); return; }
