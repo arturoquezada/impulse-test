@@ -6902,9 +6902,12 @@ function _e_abrirReingreso(empId) {
   }, 70);
 }
 
-function _e_abrirEditar(empId) {
+async function _e_abrirEditar(empId) {
   const e = _e_EMPLEADOS.find(x => x.id === empId);
   if (!e) { alert('Empleado no encontrado'); return; }
+
+  const { data: payroll } = await _e_sb.from('employees_payroll').select('*').eq('employee_id', empId).maybeSingle();
+  const p = payroll || {};
 
   document.getElementById('modalTitle').textContent = 'Editar datos — ' + e.full_name;
   document.getElementById('modalSub').textContent = 'Campaña, horario, puesto, supervisor y más';
@@ -7034,6 +7037,37 @@ function _e_abrirEditar(empId) {
         <label class="modal-label">CUENTA / CLABE</label>
         <input type="text" id="edit-cuenta" value="${e.bank_account||''}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
       </div>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:#0F172A;text-transform:uppercase;letter-spacing:.5px;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid #F1F5F9">Nómina y datos fiscales</div>
+    <div style="background:#FFFBEB;border-radius:8px;padding:10px 12px;font-size:12px;color:#92400E;margin-bottom:12px">⚠️ Esto vive en una tabla separada (employees_payroll) — es lo que de verdad usa el módulo de Nómina para calcular sueldos.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-section">
+        <label class="modal-label">SUELDO MENSUAL</label>
+        <input type="number" step="0.01" id="edit-sueldo" value="${p.salary_monthly??''}" placeholder="0.00" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+      <div class="modal-section">
+        <label class="modal-label">BANCO (para nómina)</label>
+        <input type="text" id="edit-pr-banco" value="${p.bank||''}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">CLABE</label>
+      <input type="text" id="edit-clabe" value="${p.clabe||''}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div class="modal-section">
+        <label class="modal-label">RFC</label>
+        <input type="text" id="edit-rfc" value="${p.rfc||''}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f);text-transform:uppercase"/>
+      </div>
+      <div class="modal-section">
+        <label class="modal-label">CURP</label>
+        <input type="text" id="edit-curp" value="${p.curp||''}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f);text-transform:uppercase"/>
+      </div>
+      <div class="modal-section">
+        <label class="modal-label">NSS</label>
+        <input type="text" id="edit-nss" value="${p.nss||''}" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)"/>
+      </div>
     </div>`;
   document.getElementById('modalFooter').innerHTML = `
     <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
@@ -7064,6 +7098,12 @@ async function _e_confirmarEditar(empId) {
   const hireDate    = document.getElementById('edit-hire-date')?.value;
   const banco       = document.getElementById('edit-banco')?.value?.trim() || null;
   const cuenta      = document.getElementById('edit-cuenta')?.value?.trim() || null;
+  const sueldo      = document.getElementById('edit-sueldo')?.value?.trim();
+  const prBanco     = document.getElementById('edit-pr-banco')?.value?.trim() || null;
+  const clabe       = document.getElementById('edit-clabe')?.value?.trim() || null;
+  const rfc         = document.getElementById('edit-rfc')?.value?.trim().toUpperCase() || null;
+  const curp        = document.getElementById('edit-curp')?.value?.trim().toUpperCase() || null;
+  const nss         = document.getElementById('edit-nss')?.value?.trim() || null;
   const diasDescanso = Array.from(document.querySelectorAll('.edit-descanso-cb:checked')).map(cb => cb.value);
   const diasTrabajo  = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'].filter(d => !diasDescanso.includes(d));
 
@@ -7096,6 +7136,17 @@ async function _e_confirmarEditar(empId) {
 
     const { error } = await _e_sb.from('employees').update(payload).eq('id', empId);
     if (error) throw new Error('Error guardando cambios: ' + error.message);
+
+    if (sueldo !== '' && sueldo !== undefined) {
+      const salaryMonthly = parseFloat(sueldo);
+      const salaryDaily = Math.round((salaryMonthly / 30) * 100) / 100;
+      const { error: prError } = await _e_sb.from('employees_payroll').upsert({
+        employee_id: empId, salary_monthly: salaryMonthly, salary_daily: salaryDaily,
+        bank: prBanco, clabe, rfc, curp, nss,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'employee_id' });
+      if (prError) alert('Los datos del empleado se guardaron, pero falló nómina: ' + prError.message);
+    }
 
     closeModal();
     _e_cargando = true; _e_render();
