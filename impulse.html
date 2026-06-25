@@ -1702,7 +1702,7 @@ function _buildAppShell() {
     {id:'permutas',     icon:'🔄', label:'Permutas',      roles:['agent','supervisor','manager','people','head_people']},
     {id:'vacaciones',   icon:'🏖️', label:'Vacaciones',    roles:['agent','supervisor','manager','people','head_people']},
     {id:'disciplinario',icon:'⚠️', label:'Disciplinario', roles:['supervisor','manager','people','head_people','ceo']},
-    {id:'equipo',       icon:'👥', label:'Equipo',        roles:['agent','supervisor','manager','people','head_people']},
+    {id:'equipo',       icon:'👥', label:'Equipo',        roles:['agent','supervisor','manager','people','head_people','ceo']},
   ];
 
   const visible = allMods.filter(m => m.roles.includes(currentRole));
@@ -6706,7 +6706,7 @@ function _e_render() {
     return;
   }
   if (_e_perfilAbierto) { c.innerHTML = _e_renderPerfil(_e_perfilAbierto); return; }
-  if (currentRole === 'agent') { c.innerHTML = _e_renderPerfil(ROLES[currentRole].id); return; }
+  if (!['people','head_people','ceo'].includes(currentRole)) { c.innerHTML = _e_renderPerfil(ROLES[currentRole].id); return; }
 
   const canSeeReportes = ['head_people','people','manager','ceo'].includes(currentRole);
   if (!canSeeReportes) { c.innerHTML = _e_renderLista(); return; }
