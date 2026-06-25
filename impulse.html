@@ -1698,10 +1698,10 @@ function _buildAppShell() {
   const allMods = [
     {id:'asistencia',   icon:'👤', label:'Asistencia',   roles:['agent','supervisor','manager','people','head_people','ceo','workforce']},
     {id:'nomina',       icon:'💰', label:'Nómina',        roles:['supervisor','manager','people','head_people','ceo']},
-    {id:'tickets',      icon:'🎫', label:'Tickets HR',    roles:['agent','supervisor','manager','people','head_people']},
+    {id:'tickets',      icon:'🎫', label:'Tickets HR',    roles:['agent','supervisor','manager','people','head_people','ceo']},
     {id:'permutas',     icon:'🔄', label:'Permutas',      roles:['agent','supervisor','manager','people','head_people']},
     {id:'vacaciones',   icon:'🏖️', label:'Vacaciones',    roles:['agent','supervisor','manager','people','head_people']},
-    {id:'disciplinario',icon:'⚠️', label:'Disciplinario', roles:['supervisor','manager','people','head_people']},
+    {id:'disciplinario',icon:'⚠️', label:'Disciplinario', roles:['supervisor','manager','people','head_people','ceo']},
     {id:'equipo',       icon:'👥', label:'Equipo',        roles:['agent','supervisor','manager','people','head_people']},
   ];
 
@@ -4596,11 +4596,19 @@ let _n_periodoActivo = null;
 let _n_cargando      = false;
 
 const _n_CAMPANAS = {
-  aplazo:   {label:'Aplazo',   bonus:true,  comm:false},
-  stori:    {label:'Stori',    bonus:true,  comm:false},
-  iforex:   {label:'iForex',   bonus:false, comm:true},
-  casap:    {label:'Casap',    bonus:false, comm:false},
-  cashmind: {label:'Cashmind', bonus:false, comm:false},
+  aplazo:          {label:'Aplazo',          bonus:true,  comm:false},
+  stori:           {label:'Stori',           bonus:true,  comm:false},
+  iforex:          {label:'iForex',          bonus:false, comm:true},
+  casap:           {label:'Casap',           bonus:false, comm:false},
+  cashmind:        {label:'Cashmind',        bonus:false, comm:false},
+  clivi:           {label:'Clivi',           bonus:false, comm:false},
+  admin:           {label:'Admin',           bonus:false, comm:false},
+  liderazgo:       {label:'Liderazgo',       bonus:false, comm:false},
+  naya:            {label:'Naya',            bonus:false, comm:false},
+  sanarai:         {label:'Sanarai',         bonus:false, comm:false},
+  expx:            {label:'EXPX',            bonus:false, comm:false},
+  nido:            {label:'Nido',            bonus:false, comm:false},
+  sueno_americano: {label:'Mi sueño americano', bonus:false, comm:false},
 };
 const _n_BONOS_CAMP = {aplazo: 0.15, stori: 0.15};
 
@@ -4635,7 +4643,7 @@ async function _n_cargarDatos() {
     // 2. Empleados activos con salario
     const { data: emps } = await _n_sb
       .from('employees')
-      .select('id, full_name, campaign_id, supervisor_id')
+      .select('id, full_name, campaign_id, supervisor_id, system_role')
       .eq('status','active');
 
     const { data: payroll } = await _n_sb
@@ -4653,6 +4661,7 @@ async function _n_cargarDatos() {
       name:           e.full_name,
       camp:           e.campaign_id || 'admin',
       sup:            e.supervisor_id,
+      role:           e.system_role,
       salary:         salaryMap[e.id] || 0,
       retardos:       0,
       faltas:         0,
@@ -4804,7 +4813,8 @@ const c=document.getElementById('content');
 function _n_renderSupervisor(){
   const p = _n_PERIODOS.find(x=>x.id===_n_periodoActivo);
   if(!p) return `${roleSwitcher()}<div style="text-align:center;padding:60px;color:#94A3B8"><div style="font-size:32px;margin-bottom:12px">💰</div><p>Cargando nómina...</p></div>`;
-  const miEquipo = _n_AGENTES.filter(a=>a.sup==='CX00501');
+  const ro = ROLES[currentRole];
+  const miEquipo = _n_AGENTES.filter(a=>a.sup===ro.id);
 
   let rows='';
   miEquipo.forEach(a=>{
@@ -4854,6 +4864,8 @@ function _n_renderSupervisor(){
 // ─────────────────────────────────────────────────────────────
 // MANAGER — vista de sus supervisores
 // ─────────────────────────────────────────────────────────────
+let _n_managerDrill = null; // id del supervisor cuyo equipo se está viendo en detalle
+
 function _n_renderManager(){
   const p = _n_PERIODOS.find(x=>x.id===_n_periodoActivo);
   if(!p) {
@@ -4865,24 +4877,53 @@ function _n_renderManager(){
       ${canCreate ? '<button onclick="_n_abrirNuevoPeriodo()" style="padding:12px 24px;background:#0F172A;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--f)">+ Crear primer período</button>' : ''}
     </div>`;
   }
-  const SUPS_LIST = [
-    {id:'CX00501',name:'Luis Torres',   camp:'Aplazo',   agentes:_n_AGENTES.filter(a=>a.sup==='CX00501')},
-    {id:'CX00503',name:'Pedro Ramírez', camp:'iForex',   agentes:_n_AGENTES.filter(a=>a.sup==='CX00503')},
-    {id:'CX00505',name:'Tomás Herrera', camp:'Cashmind', agentes:_n_AGENTES.filter(a=>a.sup==='CX00505')},
-  ];
+
+  // Si se está viendo el detalle de un supervisor en particular, reusar la vista de supervisor
+  if (_n_managerDrill) {
+    const sup = _n_AGENTES.find(a => a.id === _n_managerDrill);
+    const equipo = _n_AGENTES.filter(a => a.sup === _n_managerDrill);
+    let rows = '';
+    equipo.forEach(a=>{
+      const l = _n_calcLinea(a, p);
+      const camp = _n_CAMPANAS[a.camp] || {label:a.camp, bonus:false, comm:false};
+      rows+=`<tr class="${l.anomalias.length>0?'anomaly':''}">
+        <td><div class="tn">${a.name}</div><div style="font-size:10px;color:#94A3B8;font-family:var(--fm)">${a.id}</div></td>
+        <td><span style="font-size:11px;background:#F1F5F9;color:#475569;padding:2px 7px;border-radius:4px">${camp.label}</span></td>
+        <td class="tm">${l.diasTrabajados}<span style="color:#94A3B8">/${l.diasTotales}</span></td>
+        <td style="color:${a.retardos>0?'#D97706':'#16A34A'};font-family:var(--fm)">${a.retardos}</td>
+        <td style="color:${a.faltas>0?'#DC2626':'#16A34A'};font-family:var(--fm)">${a.faltas}</td>
+        <td class="tm" style="font-weight:700">${pesos(l.sueldo_base)}</td>
+        ${l.anomalias.length>0?`<td><span style="font-size:10px;color:#D97706">⚠️ ${l.anomalias.join(' · ')}</span></td>`:'<td style="color:#94A3B8;font-size:11px">—</td>'}
+      </tr>`;
+    });
+    return `${roleSwitcher()}
+    ${_n_periodoSelector()}
+    <button onclick="_n_managerDrill=null;_n_render()" style="border:1px solid #E2E8F0;border-radius:8px;padding:7px 14px;background:#fff;cursor:pointer;font-size:12px;font-weight:600;margin-bottom:14px">← Volver a todos los supervisores</button>
+    <div class="sh"><div class="sh-t">Equipo de ${sup?sup.name:_n_managerDrill} · ${p.nombre}</div></div>
+    <div class="tw" style="overflow-x:auto"><table style="min-width:700px">
+      <thead><tr><th>Agente</th><th>Campaña</th><th>Días trab.</th><th>Retardos</th><th>Faltas</th><th>Sueldo base</th><th>Alertas</th></tr></thead>
+      <tbody>${rows||'<tr><td colspan="7" style="text-align:center;padding:30px;color:#94A3B8">Sin agentes en este equipo</td></tr>'}</tbody>
+    </table></div>`;
+  }
+
+  // Lista dinámica de supervisores activos, con su equipo real (employees.supervisor_id)
+  const SUPS_LIST = _n_AGENTES
+    .filter(a => a.role === 'supervisor')
+    .map(s => ({...s, agentes: _n_AGENTES.filter(a => a.sup === s.id)}));
 
   let rows='';
   let grandTotal=0;
   SUPS_LIST.forEach(s=>{
+    const camp = _n_CAMPANAS[s.camp] || {label:s.camp, bonus:false, comm:false};
     const lineas = s.agentes.map(a=>_n_calcLinea(a,p));
     const total  = lineas.reduce((sum,l)=>sum+l.total_bruto,0);
     const anomalias = lineas.filter(l=>l.anomalias.length>0).length;
-    const sinBono = s.agentes.filter(a=>_n_CAMPANAS[a.camp].bonus&&(a.retardos>0||a.faltas>0)).length;
+    const sinBono = s.agentes.filter(a=>(_n_CAMPANAS[a.camp]||{}).bonus&&(a.retardos>0||a.faltas>0)).length;
     const otPend  = s.agentes.filter(a=>a.ot_mins>0&&a.ot_aprobado===0).length;
     grandTotal += total;
-    rows+=`<tr>
+    rows+=`<tr onclick="_n_managerDrill='${s.id}';_n_render()" style="cursor:pointer">
       <td><div class="tn">${s.name}</div><div style="font-size:10px;color:#94A3B8;font-family:var(--fm)">${s.id}</div></td>
-      <td><span style="font-size:11px;background:#F1F5F9;color:#475569;padding:2px 7px;border-radius:4px">${s.camp}</span></td>
+      <td><span style="font-size:11px;background:#F1F5F9;color:#475569;padding:2px 7px;border-radius:4px">${camp.label}</span></td>
       <td class="tm">${s.agentes.length}</td>
       <td class="tm" style="color:${sinBono>0?'#D97706':'#16A34A'}">${sinBono}</td>
       <td class="tm" style="color:${otPend>0?'#7E22CE':'#94A3B8'}">${otPend}</td>
@@ -4891,18 +4932,19 @@ function _n_renderManager(){
     </tr>`;
   });
 
+  const totalAgentes = _n_AGENTES.filter(a => a.role === 'agent');
   return`${roleSwitcher()}
   ${_n_periodoSelector()}
   ${p.dias_proyectados.length>0?`<div class="alert alert-blue">📅 <strong>${p.dias_proyectados.length} días proyectados</strong> incluidos en este periodo (${p.dias_proyectados.map(d=>_n_fmt(d)).join(', ')}).</div>`:''}
   <div class="kgrid kg3">
-    <div class="kbox"><div class="klabel">Total nómina mis equipos</div><div class="kval" style="font-size:18px">${pesos(grandTotal)}</div></div>
-    <div class="kbox warn"><div class="klabel">Agentes sin bono</div><div class="kval" style="color:#D97706">${_n_AGENTES.filter(a=>_n_CAMPANAS[a.camp].bonus&&(a.retardos>0||a.faltas>0)).length}</div><div class="kdelta w">Tienen retardo o falta</div></div>
-    <div class="kbox"><div class="klabel">OT pendiente de aprobar</div><div class="kval" style="color:#7E22CE">${_n_AGENTES.filter(a=>a.ot_mins>0&&a.ot_aprobado===0).length}</div><div class="kdelta w">Agentes con OT sin gestionar</div></div>
+    <div class="kbox"><div class="klabel">Total nómina (todos los equipos)</div><div class="kval" style="font-size:18px">${pesos(grandTotal)}</div></div>
+    <div class="kbox warn"><div class="klabel">Agentes sin bono</div><div class="kval" style="color:#D97706">${totalAgentes.filter(a=>(_n_CAMPANAS[a.camp]||{}).bonus&&(a.retardos>0||a.faltas>0)).length}</div><div class="kdelta w">Tienen retardo o falta</div></div>
+    <div class="kbox"><div class="klabel">OT pendiente de aprobar</div><div class="kval" style="color:#7E22CE">${totalAgentes.filter(a=>a.ot_mins>0&&a.ot_aprobado===0).length}</div><div class="kdelta w">Agentes con OT sin gestionar</div></div>
   </div>
-  <div class="sh"><div class="sh-t">Resumen por supervisor · ${p.nombre}</div></div>
+  <div class="sh"><div class="sh-t">Resumen por supervisor · ${p.nombre} <span style="font-weight:400;color:#94A3B8;font-size:11px">(clic en una fila para ver el detalle del equipo)</span></div></div>
   <div class="tw"><table style="min-width:500px">
     <thead><tr><th>Supervisor</th><th>Campaña</th><th>Agentes</th><th>Sin bono</th><th>OT pendiente</th><th>Anomalías</th><th>Total bruto</th></tr></thead>
-    <tbody>${rows}</tbody>
+    <tbody>${rows||'<tr><td colspan="7" style="text-align:center;padding:30px;color:#94A3B8">No hay supervisores activos registrados</td></tr>'}</tbody>
   </table></div>`;
 }
 
@@ -5495,7 +5537,7 @@ function _t_render() {
   if (_t_detalleId) { _t_renderDetalle(_t_detalleId); return; }
 
   const ro = ROLES[currentRole];
-  const isSup = ['supervisor','manager','people','head_people'].includes(currentRole);
+  const isSup = ['people','head_people','ceo'].includes(currentRole);
   const misTick = _t_TICKETS.filter(t => t.employee_id === ro.id);
   const lista = (_t_vistaTickets === 'todos' && isSup) ? _t_TICKETS : misTick;
 
@@ -5532,7 +5574,7 @@ function _t_renderDetalle(id) {
   const t = _t_TICKETS.find(x => x.id === id);
   if (!t) { _t_detalleId = null; _t_render(); return; }
   const c = document.getElementById('content');
-  const isSup = ['supervisor','manager','people','head_people'].includes(currentRole);
+  const isSup = ['people','head_people','ceo'].includes(currentRole);
   c.innerHTML = `<div style="max-width:700px;margin:0 auto">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
       <button onclick="_t_detalleId=null;_t_render()" style="border:1px solid #E2E8F0;border-radius:8px;padding:7px 14px;background:#fff;cursor:pointer;font-size:12px;font-weight:600">← Volver</button>
@@ -5638,7 +5680,7 @@ async function _p_cargarDatos() {
     if (e1) throw e1;
     _p_SWAPS = swaps || [];
     const { data: emps, error: e2 } = await _p_sb.from('employees')
-      .select('id,full_name,campaign_id,shift_start,shift_end').eq('status','active').order('full_name');
+      .select('id,full_name,campaign_id,shift_start,shift_end,system_role,status,supervisor_id').eq('status','active').order('full_name');
     if (e2) throw e2;
     _p_EMPLEADOS = emps || [];
     return true;
@@ -5666,7 +5708,13 @@ function _p_render() {
   const ro = ROLES[currentRole];
   const isSup = ['supervisor','manager','people','head_people'].includes(currentRole);
   const misSwaps = _p_SWAPS.filter(s => s.requester_id === ro.id || s.swap_with_id === ro.id);
-  const pendApproval = isSup ? _p_SWAPS.filter(s => s.status === 'pending') : [];
+  let pendApproval = [];
+  if (currentRole === 'supervisor') {
+    const miEquipo = _p_EMPLEADOS.filter(e => e.supervisor_id === ro.id).map(e => e.id);
+    pendApproval = _p_SWAPS.filter(s => s.status === 'pending' && miEquipo.includes(s.requester_id));
+  } else if (isSup) {
+    pendApproval = _p_SWAPS.filter(s => s.status === 'pending');
+  }
 
   let pendRows = '';
   pendApproval.forEach(s => {
@@ -5688,12 +5736,16 @@ function _p_render() {
   misSwaps.forEach(s => {
     const esReq = s.requester_id === ro.id;
     const other = _p_EMPLEADOS.find(e => e.id === (esReq ? s.swap_with_id : s.requester_id));
+    const resolvedBy = _p_EMPLEADOS.find(e => e.id === s.approved_by);
+    const resolvedLabel = s.status === 'approved' ? `Aprobó: ${resolvedBy?resolvedBy.full_name:'—'}`
+                         : s.status === 'rejected' ? `Rechazó: ${resolvedBy?resolvedBy.full_name:'—'}` : '—';
     rows += `<tr>
       <td style="padding:10px 14px;font-size:13px">${other?other.full_name:'—'}</td>
       <td style="padding:10px 14px;font-size:13px">${s.swap_type==='descanso'?'🔄 Descanso':'📅 Turno'}</td>
       <td style="padding:10px 14px;font-size:13px">${s.work_date||'—'}</td>
       <td style="padding:10px 14px;font-size:13px">${s.rest_date||'—'}</td>
       <td style="padding:10px 14px">${_p_statusBadge(s.status)}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#64748B">${resolvedLabel}</td>
       ${esReq && s.status==='pending'?`<td style="padding:10px 14px"><button onclick="_p_cancelar('${s.id}')" style="font-size:11px;padding:4px 10px;border:1px solid #FCA5A5;border-radius:6px;background:#FEF2F2;color:#DC2626;cursor:pointer">Cancelar</button></td>`:'<td></td>'}
     </tr>`;
   });
@@ -5714,7 +5766,7 @@ function _p_render() {
     <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div style="font-weight:700;font-size:13px">Mis permutas</div>
-        <button onclick="_p_abrirNueva()" style="padding:7px 14px;background:#0F172A;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ Solicitar permuta</button>
+        ${currentRole==='agent'?`<button onclick="_p_abrirNueva()" style="padding:7px 14px;background:#0F172A;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ Solicitar permuta</button>`:''}
       </div>
       ${misSwaps.length?`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:600px">
         <thead style="background:#F8FAFC"><tr>
@@ -5723,6 +5775,7 @@ function _p_render() {
           <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Fecha trabajo</th>
           <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Fecha descanso</th>
           <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Status</th>
+          <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Autorizó</th>
           <th></th>
         </tr></thead><tbody>${rows}</tbody>
       </table></div>`:'<div style="text-align:center;padding:30px;color:#94A3B8">Sin permutas registradas</div>'}
@@ -5731,8 +5784,11 @@ function _p_render() {
 }
 
 function _p_abrirNueva() {
-  const opts = _p_EMPLEADOS.map(e =>
-    `<option value="${e.id}">${e.full_name}${e.campaign_id?' ('+e.campaign_id+')':''}</option>`).join('');
+  if (currentRole !== 'agent') { alert('Solo agentes pueden solicitar permutas.'); return; }
+  const ro = ROLES[currentRole];
+  const opts = _p_EMPLEADOS
+    .filter(e => e.system_role === 'agent' && e.status === 'active' && e.id !== ro.id)
+    .map(e => `<option value="${e.id}">${e.full_name}${e.campaign_id?' ('+e.campaign_id+')':''}</option>`).join('');
   document.getElementById('modalTitle').textContent = 'Solicitar Permuta';
   document.getElementById('modalSub').textContent = '';
   document.getElementById('modalBody').innerHTML = `
@@ -5764,6 +5820,7 @@ function _p_abrirNueva() {
 }
 
 async function _p_crearPermuta() {
+  if (currentRole !== 'agent') { alert('Solo agentes pueden solicitar permutas.'); return; }
   const withId = document.getElementById('p-with')?.value;
   const type   = document.getElementById('p-type')?.value;
   const work   = document.getElementById('p-work')?.value;
@@ -5787,7 +5844,8 @@ async function _p_aprobar(id) {
   await _p_cargarDatos(); _p_render();
 }
 async function _p_rechazar(id) {
-  await _p_sb.from('swaps').update({status:'rejected'}).eq('id',id);
+  const ro = ROLES[currentRole];
+  await _p_sb.from('swaps').update({status:'rejected', approved_by:ro.id, approved_at:new Date().toISOString()}).eq('id',id);
   await _p_cargarDatos(); _p_render();
 }
 async function _p_cancelar(id) {
@@ -5856,7 +5914,6 @@ function _v_render() {
     return;
   }
   if (['people','head_people'].includes(currentRole)) c.innerHTML = _v_renderPeople();
-  else if (['manager','supervisor'].includes(currentRole)) c.innerHTML = _v_renderPeople();
   else c.innerHTML = _v_renderAgent();
 }
 
@@ -6044,7 +6101,7 @@ async function _d_cargarDatos() {
     if (e1) throw e1;
     _d_RECORDS = recs || [];
     const { data: emps, error: e2 } = await _d_sb.from('employees')
-      .select('id,full_name,campaign_id').eq('status','active').order('full_name');
+      .select('id,full_name,campaign_id,supervisor_id,system_role').eq('status','active').order('full_name');
     if (e2) throw e2;
     _d_EMPLEADOS = emps || [];
     return true;
@@ -6057,6 +6114,8 @@ function _d_severityBadge(s) {
   return `<span style="font-size:11px;padding:3px 8px;border-radius:99px;background:${c.bg};color:${c.color};font-weight:600">${c.label}</span>`;
 }
 
+let _d_managerDrill = null; // id del supervisor cuyo equipo se está viendo en detalle (vista de manager)
+
 function _d_render() {
   updateSidebarUser();
   const c = document.getElementById('content');
@@ -6065,8 +6124,61 @@ function _d_render() {
     return;
   }
   const ro = ROLES[currentRole];
-  const isSup = ['supervisor','manager','people','head_people'].includes(currentRole);
-  const records = isSup ? _d_RECORDS : _d_RECORDS.filter(r => r.employee_id === ro.id);
+
+  // MANAGER: lista de supervisores, con drill-down al equipo de cada uno
+  if (currentRole === 'manager' && !_d_managerDrill) {
+    const sups = _d_EMPLEADOS.filter(e => e.system_role === 'supervisor');
+    const rows = sups.map(s => {
+      const equipo = _d_EMPLEADOS.filter(e => e.supervisor_id === s.id);
+      const recs = _d_RECORDS.filter(r => equipo.some(e => e.id === r.employee_id));
+      const activos = recs.filter(r => r.is_active).length;
+      return `<tr onclick="_d_managerDrill='${s.id}';_d_render()" style="cursor:pointer;border-top:1px solid #F1F5F9">
+        <td style="padding:10px 14px"><div style="font-size:13px;font-weight:600">${s.full_name}</div><div style="font-size:11px;color:#94A3B8">${s.id}</div></td>
+        <td style="padding:10px 14px;font-size:13px">${s.campaign_id||'—'}</td>
+        <td style="padding:10px 14px;font-size:13px">${equipo.length} agentes</td>
+        <td style="padding:10px 14px;font-size:13px">${recs.length} registros</td>
+        <td style="padding:10px 14px;font-size:13px;color:${activos>0?'#DC2626':'#16A34A'};font-weight:700">${activos} activos</td>
+      </tr>`;
+    }).join('');
+    c.innerHTML = `<div style="max-width:1000px;margin:0 auto">
+      <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:16px">
+        <div style="font-weight:700;font-size:13px;margin-bottom:12px">Supervisores <span style="font-weight:400;color:#94A3B8;font-size:11px">(clic para ver el detalle de cada equipo)</span></div>
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:700px">
+          <thead style="background:#F8FAFC"><tr>
+            <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Supervisor</th>
+            <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Campaña</th>
+            <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Equipo</th>
+            <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Registros</th>
+            <th style="padding:8px 14px;text-align:left;font-size:11px;color:#64748B;font-weight:600">Activos</th>
+          </tr></thead><tbody>${rows||'<tr><td colspan="5" style="text-align:center;padding:30px;color:#94A3B8">No hay supervisores activos</td></tr>'}</tbody>
+        </table></div>
+      </div>
+    </div>`;
+    return;
+  }
+
+  // Determinar el set de registros visibles según el rol
+  let records, canCreate, volverManager = false;
+  if (currentRole === 'manager' && _d_managerDrill) {
+    const equipo = _d_EMPLEADOS.filter(e => e.supervisor_id === _d_managerDrill);
+    records = _d_RECORDS.filter(r => equipo.some(e => e.id === r.employee_id));
+    canCreate = false;
+    volverManager = true;
+  } else if (currentRole === 'supervisor') {
+    const equipo = _d_EMPLEADOS.filter(e => e.supervisor_id === ro.id);
+    records = _d_RECORDS.filter(r => equipo.some(e => e.id === r.employee_id));
+    canCreate = true;
+  } else if (['people','head_people'].includes(currentRole)) {
+    records = _d_RECORDS;
+    canCreate = true;
+  } else if (currentRole === 'ceo') {
+    records = _d_RECORDS;
+    canCreate = false;
+  } else {
+    records = _d_RECORDS.filter(r => r.employee_id === ro.id);
+    canCreate = false;
+  }
+
   const activos = records.filter(r => r.is_active);
 
   let rows = records.slice(0,50).map(r => {
@@ -6082,6 +6194,7 @@ function _d_render() {
   }).join('');
 
   c.innerHTML = `<div style="max-width:1000px;margin:0 auto">
+    ${volverManager?`<button onclick="_d_managerDrill=null;_d_render()" style="border:1px solid #E2E8F0;border-radius:8px;padding:7px 14px;background:#fff;cursor:pointer;font-size:12px;font-weight:600;margin-bottom:14px">← Volver a todos los supervisores</button>`:''}
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
       <div style="background:#fff;border-radius:12px;padding:18px;border:1px solid #E2E8F0"><div style="font-size:28px;font-weight:800">${records.length}</div><div style="font-size:11px;color:#64748B;text-transform:uppercase;margin-top:4px">Total registros</div></div>
       <div style="background:#fff;border-radius:12px;padding:18px;border:1px solid #E2E8F0"><div style="font-size:28px;font-weight:800;color:#DC2626">${activos.length}</div><div style="font-size:11px;color:#64748B;text-transform:uppercase;margin-top:4px">Activos</div></div>
@@ -6090,7 +6203,7 @@ function _d_render() {
     <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div style="font-weight:700;font-size:13px">Registros disciplinarios</div>
-        ${isSup?`<button onclick="_d_abrirNuevo()" style="padding:7px 14px;background:#0F172A;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ Nuevo registro</button>`:''}
+        ${canCreate?`<button onclick="_d_abrirNuevo()" style="padding:7px 14px;background:#0F172A;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ Nuevo registro</button>`:''}
       </div>
       ${records.length?`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:800px">
         <thead style="background:#F8FAFC"><tr>
