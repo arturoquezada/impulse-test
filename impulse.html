@@ -6334,7 +6334,7 @@ let _e_filtroStatus = 'active';
 async function _e_cargarEmpleados() {
   try {
     const { data, error } = await _e_sb.from('employees')
-      .select('id,full_name,first_name,last_name,email,campaign_id,system_role,supervisor_id,supervisor_name,shift_start,shift_end,hire_date,termination_date,termination_type,termination_reason,termination_details,eligible_for_rehire,status,position_title,phone,birth_date,gender,secondary_campaign,lob,address_street,address_colonia')
+      .select('id,full_name,first_name,last_name,email,personal_email,campaign_id,secondary_campaign,system_role,supervisor_id,supervisor_name,supervisor_email,shift_start,shift_end,work_days,days_off,hire_date,termination_date,termination_type,termination_reason,termination_details,eligible_for_rehire,status,position_title,phone,birth_date,gender,lob,queue,address,address_street,address_colonia,address_cp,bank_name,bank_account')
       .order('full_name');
     if (error) throw error;
     _e_EMPLEADOS = data || [];
