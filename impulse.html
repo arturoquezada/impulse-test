@@ -1645,11 +1645,31 @@ async function _doChangePw() {
 }
 
 // ── INICIAR APP ───────────────────────────────────────────────
-function _startApp(user) {
-  const meta   = user.user_metadata || {};
-  const empId  = meta.employee_id;
-  const role   = meta.system_role || 'agent';
-  const nombre = meta.nombre || user.email;
+async function _startApp(user) {
+  const meta  = user.user_metadata || {};
+  const empId = meta.employee_id;
+
+  // Rol/nombre SIEMPRE frescos desde employees, nunca del metadata viejo
+  // guardado al crear la cuenta (si el rol se corrigió después por SQL,
+  // el metadata se queda obsoleto y por eso es la fuente de verdad equivocada).
+  let role = meta.system_role || 'agent';
+  let nombre = meta.nombre || user.email;
+  try {
+    const { data: emp, error } = await _auth_sb.from('employees')
+      .select('system_role, full_name, status').eq('id', empId).maybeSingle();
+    if (error) throw error;
+    if (emp) {
+      role = emp.system_role || role;
+      nombre = emp.full_name || nombre;
+      if (emp.status !== 'active') {
+        await _auth_sb.auth.signOut();
+        showLogin('Tu cuenta ya no está activa. Contacta a People.');
+        return;
+      }
+    }
+  } catch(e) {
+    console.error('[Impulse] No se pudo refrescar el rol desde employees, usando metadata:', e);
+  }
 
   currentRole = role;
   ROLES[role] = { ...ROLES[role], name: nombre, id: empId,
@@ -1827,9 +1847,27 @@ async function _initImpulse() {
       if(elapsed < SESSION_MAX) {
         const { data: { session } } = await _auth_sb.auth.getSession();
         if(session) {
-          currentRole = u.role;
-          ROLES[u.role] = { ...ROLES[u.role], name: u.nombre, id: u.empId,
-            av: initials(u.nombre) };
+          let role = u.role, nombre = u.nombre;
+          try {
+            const { data: emp, error } = await _auth_sb.from('employees')
+              .select('system_role, full_name, status').eq('id', u.empId).maybeSingle();
+            if (error) throw error;
+            if (emp) {
+              if (emp.status !== 'active') {
+                await _auth_sb.auth.signOut();
+                sessionStorage.removeItem('impulse_user');
+                showLogin('Tu cuenta ya no está activa. Contacta a People.');
+                return;
+              }
+              role = emp.system_role || role;
+              nombre = emp.full_name || nombre;
+            }
+          } catch(e) { console.error('[Impulse] No se pudo refrescar el rol al restaurar sesión:', e); }
+
+          currentRole = role;
+          ROLES[role] = { ...ROLES[role], name: nombre, id: u.empId,
+            av: initials(nombre) };
+          sessionStorage.setItem('impulse_user', JSON.stringify({ ...u, role, nombre }));
           _auth_sessionStart = u.sessionStart;
           window._auth_loggedIn = true;
           roleSwitcher = function(){ return ''; };
