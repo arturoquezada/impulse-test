@@ -1654,13 +1654,16 @@ async function _startApp(user) {
   // el metadata se queda obsoleto y por eso es la fuente de verdad equivocada).
   let role = meta.system_role || 'agent';
   let nombre = meta.nombre || user.email;
+  let camp = null, campSec = null;
   try {
     const { data: emp, error } = await _auth_sb.from('employees')
-      .select('system_role, full_name, status').eq('id', empId).maybeSingle();
+      .select('system_role, full_name, status, campaign_id, secondary_campaign').eq('id', empId).maybeSingle();
     if (error) throw error;
     if (emp) {
       role = emp.system_role || role;
       nombre = emp.full_name || nombre;
+      camp = emp.campaign_id || null;
+      campSec = emp.secondary_campaign || null;
       if (emp.status !== 'active') {
         await _auth_sb.auth.signOut();
         showLogin('Tu cuenta ya no está activa. Contacta a People.');
@@ -1672,11 +1675,11 @@ async function _startApp(user) {
   }
 
   currentRole = role;
-  ROLES[role] = { ...ROLES[role], name: nombre, id: empId,
-    av: initials(nombre), label: ROLES[role]?.label || role };
+  ROLES[role] = { ...ROLES[role], name: nombre, id: empId, camp: camp || ROLES[role]?.camp,
+    campSec, av: initials(nombre), label: ROLES[role]?.label || role };
 
   sessionStorage.setItem('impulse_user', JSON.stringify({
-    email: user.email, empId, role, nombre, sessionStart: Date.now()
+    email: user.email, empId, role, nombre, camp, campSec, sessionStart: Date.now()
   }));
 
   _auth_sessionStart = Date.now();
@@ -1847,10 +1850,10 @@ async function _initImpulse() {
       if(elapsed < SESSION_MAX) {
         const { data: { session } } = await _auth_sb.auth.getSession();
         if(session) {
-          let role = u.role, nombre = u.nombre;
+          let role = u.role, nombre = u.nombre, camp = u.camp, campSec = u.campSec;
           try {
             const { data: emp, error } = await _auth_sb.from('employees')
-              .select('system_role, full_name, status').eq('id', u.empId).maybeSingle();
+              .select('system_role, full_name, status, campaign_id, secondary_campaign').eq('id', u.empId).maybeSingle();
             if (error) throw error;
             if (emp) {
               if (emp.status !== 'active') {
@@ -1861,13 +1864,15 @@ async function _initImpulse() {
               }
               role = emp.system_role || role;
               nombre = emp.full_name || nombre;
+              camp = emp.campaign_id || camp;
+              campSec = emp.secondary_campaign || null;
             }
           } catch(e) { console.error('[Impulse] No se pudo refrescar el rol al restaurar sesión:', e); }
 
           currentRole = role;
-          ROLES[role] = { ...ROLES[role], name: nombre, id: u.empId,
+          ROLES[role] = { ...ROLES[role], name: nombre, id: u.empId, camp, campSec,
             av: initials(nombre) };
-          sessionStorage.setItem('impulse_user', JSON.stringify({ ...u, role, nombre }));
+          sessionStorage.setItem('impulse_user', JSON.stringify({ ...u, role, nombre, camp, campSec }));
           _auth_sessionStart = u.sessionStart;
           window._auth_loggedIn = true;
           roleSwitcher = function(){ return ''; };
