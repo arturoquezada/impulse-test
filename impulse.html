@@ -6367,7 +6367,7 @@ function _e_visibleEmpleados() {
   }
   if (currentRole === 'supervisor') {
     const ro = ROLES[currentRole];
-    lista = lista.filter(e => e.supervisor_id === ro.id || e.id === ro.id);
+    lista = lista.filter(e => e.supervisor_id === ro.id && e.id !== ro.id);
   } else if (['people','head_people','ceo'].includes(currentRole)) {
     const ro = ROLES[currentRole];
     lista = lista.filter(e => e.id !== ro.id);
@@ -6830,7 +6830,7 @@ function _e_render() {
 
   const ro = ROLES[currentRole];
   const scopeIds = currentRole === 'supervisor'
-    ? _e_EMPLEADOS.filter(e => e.supervisor_id === ro.id || e.id === ro.id).map(e => e.id)
+    ? _e_EMPLEADOS.filter(e => e.supervisor_id === ro.id && e.id !== ro.id).map(e => e.id)
     : ['people','head_people','ceo'].includes(currentRole)
       ? _e_EMPLEADOS.filter(e => e.id !== ro.id).map(e => e.id) // toda la empresa, menos ellos mismos
       : null; // manager: toda la empresa, sin acotar
