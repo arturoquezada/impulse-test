@@ -2862,9 +2862,9 @@ function _a_guardarFalta(){
 let _a_faltaSupModal = { supId: null };
 
 function _a_abrirModalFaltaSup(supId){
-  // Reutiliza el mismo modal pero guarda en _a_SUPS
+  // Reutiliza el mismo modal pero guarda en _a_SUPS_REAL
   _a_faltaSupModal.supId = supId;
-  const s = _a_SUPS.find(x=>x.id===supId);
+  const s = _a_SUPS_REAL.find(x=>x.id===supId);
   if(!s) return;
 
   const grupos = [...new Set(_a_MOTIVOS.map(m=>m.grupo))];
@@ -2938,7 +2938,7 @@ function _a_guardarFaltaSup(){
   const nota = document.getElementById('falta-nota')?.value || '';
   const cat  = _a__catForzada || _a_categoriaFromMotivo(motivo);
   _a__catForzada = null;
-  const s = _a_SUPS.find(x=>x.id===_a_faltaSupModal.supId);
+  const s = _a_SUPS_REAL.find(x=>x.id===_a_faltaSupModal.supId);
   if(!s) return;
 
   const estadoDisplay = cat==='incapacidad' ? 'pendiente_comprobante' : cat;
@@ -2950,7 +2950,7 @@ function _a_guardarFaltaSup(){
 
 // Auto-marca faltas para supervisores sin punch (igual que agentes, 3h)
 function _a_checkAutoFaltasSups(){
-  _a_SUPS.forEach(s=>{
+  _a_SUPS_REAL.forEach(s=>{
     if(!s.entrada && !s.falta && !s.skipAuto){
       s.status = 'falta';
       s.falta  = {
@@ -3002,10 +3002,10 @@ function _a_checkAutoFaltas(){
 }
 
 // Supervisores (para manager/head)
-let _a_SUPS=[];
+// (declaración duplicada eliminada — _a_SUPS_REAL ya se declara arriba)
 
 // Top 10 riesgo (head)
-// Métricas de atención del supervisor — declarado aquí porque depende de _a_SUPS y _a_FALTAS_LOG
+// Métricas de atención del supervisor — declarado aquí porque depende de _a_SUPS_REAL y _a_FALTAS_LOG
 let _a_SUP_ATENCION=[];
 
 let _a_RIESGO=[];
@@ -3316,15 +3316,15 @@ function _a_renderSupervisor(){
 // VISTA MANAGER
 // ─────────────────────────────────────────────
 function _a_renderManager(){
-  const totAgents=_a_SUPS.reduce((s,x)=>s+x.agents,0);
-  const totOnTime=_a_SUPS.reduce((s,x)=>s+x.onTime,0);
-  const totLate=_a_SUPS.reduce((s,x)=>s+x.late,0);
-  const totAbsent=_a_SUPS.reduce((s,x)=>s+x.absent,0);
-  const totNoOut=_a_SUPS.reduce((s,x)=>s+x.noOut,0);
-  const totHContr=_a_SUPS.reduce((s,x)=>s+x.hoursContracted,0);
-  const totHWork=_a_SUPS.reduce((s,x)=>s+x.hoursWorked,0);
-  const totBonusRisk=_a_SUPS.reduce((s,x)=>s+x.bonusRisk,0);
-  const totCostAus=_a_SUPS.reduce((s,x)=>s+x.costAusentismo,0);
+  const totAgents=_a_SUPS_REAL.reduce((s,x)=>s+x.agents,0);
+  const totOnTime=_a_SUPS_REAL.reduce((s,x)=>s+x.onTime,0);
+  const totLate=_a_SUPS_REAL.reduce((s,x)=>s+x.late,0);
+  const totAbsent=_a_SUPS_REAL.reduce((s,x)=>s+x.absent,0);
+  const totNoOut=_a_SUPS_REAL.reduce((s,x)=>s+x.noOut,0);
+  const totHContr=_a_SUPS_REAL.reduce((s,x)=>s+x.hoursContracted,0);
+  const totHWork=_a_SUPS_REAL.reduce((s,x)=>s+x.hoursWorked,0);
+  const totBonusRisk=_a_SUPS_REAL.reduce((s,x)=>s+x.bonusRisk,0);
+  const totCostAus=_a_SUPS_REAL.reduce((s,x)=>s+x.costAusentismo,0);
   const pctGlobal=Math.round((totOnTime/totAgents)*100);
 
   const trendRet=[12,18,15,totLate];
@@ -3364,7 +3364,7 @@ function _a_renderManager(){
 
   // Tabla de equipo (agentes) para la vista de detalle
   let rows='';
-  _a_SUPS.forEach(s=>{
+  _a_SUPS_REAL.forEach(s=>{
     const pct=Math.round((s.onTime/s.agents)*100);
     const efic=Math.round((s.hoursWorked/s.hoursContracted)*100);
     rows+=`<tr onclick="_a_drillToSup('${s.id}')">
@@ -3590,7 +3590,7 @@ function _a_renderPeople(){
       <thead><tr><th>Agente</th><th>Fecha</th><th>Motivo</th><th>Supervisor</th><th>Acción</th></tr></thead>
       <tbody>
         ${_a_FALTAS_LOG.filter(f=>f.estado==='pendiente_comprobante').map(f=>{
-          const sup=_a_SUPS.find(s=>s.id===f.supId);
+          const sup=_a_SUPS_REAL.find(s=>s.id===f.supId);
           return`<tr>
             <td><div class="agent-row-name">${f.agentName}</div><div class="agent-row-id">${f.agentId}</div></td>
             <td style="font-size:12px;color:#475569">${f.fecha}</td>
@@ -3725,7 +3725,7 @@ function _a_renderCEO(){
   if(_a_ceoDrillAg){
     const a=_a_TEAM.find(x=>x.id===_a_ceoDrillAg)||_a_TEAM[0];
     const {rows,tw,tl,tr,pct}=_a_quincenaTable();
-    const sup=_a_SUPS.find(s=>s.id===_a_ceoDrillSup)||_a_SUPS[0];
+    const sup=_a_SUPS_REAL.find(s=>s.id===_a_ceoDrillSup)||_a_SUPS_REAL[0];
     const camp=_a_CAMP_DATA.find(c=>c.key===_a_ceoDrillCamp)||_a_CAMP_DATA[0];
     return`${_a_roleSwitcherHTML()}
     <div class="drilldown-header">
@@ -3765,7 +3765,7 @@ function _a_renderCEO(){
 
   // Nivel 2: supervisor dentro de campaña
   if(_a_ceoDrillSup){
-    const sup=_a_SUPS.find(s=>s.id===_a_ceoDrillSup)||_a_SUPS[0];
+    const sup=_a_SUPS_REAL.find(s=>s.id===_a_ceoDrillSup)||_a_SUPS_REAL[0];
     const camp=_a_CAMP_DATA.find(c=>c.key===_a_ceoDrillCamp)||_a_CAMP_DATA[0];
     const onTime=_a_TEAM.filter(a=>a.status==='on_time').length;
     const late=_a_TEAM.filter(a=>a.status==='late').length;
@@ -3807,9 +3807,9 @@ function _a_renderCEO(){
   // Nivel 1: campaña
   if(_a_ceoDrillCamp){
     const camp=_a_CAMP_DATA.find(c=>c.key===_a_ceoDrillCamp)||_a_CAMP_DATA[0];
-    const campSups=_a_SUPS.filter(s=>s.camp.toLowerCase()===camp.name.toLowerCase());
+    const campSups=_a_SUPS_REAL.filter(s=>s.camp.toLowerCase()===camp.name.toLowerCase());
     let sRows='';
-    (campSups.length?campSups:_a_SUPS.slice(0,2)).forEach(s=>{
+    (campSups.length?campSups:_a_SUPS_REAL.slice(0,2)).forEach(s=>{
       const pct=Math.round((s.onTime/s.agents)*100);
       sRows+=`<tr onclick="_a_ceoDrillSup='${s.id}';_a_render()">
         <td><div class="agent-row-name">${s.name}</div><div class="agent-row-id">${s.id}</div></td>
