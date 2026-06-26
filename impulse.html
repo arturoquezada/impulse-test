@@ -7210,12 +7210,14 @@ async function _e_abrirEditar(empId) {
       </div>
     </div>
     <div class="modal-section">
-      <label class="modal-label">CAMPAÑA SECUNDARIA (opcional, solo si la persona dobla turno en otra campaña)</label>
-      <select id="edit-campana-sec" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+      <label class="modal-label">CAMPAÑA SECUNDARIA</label>
+      <select id="edit-campana-sec" ${!e.secondary_campaign?'disabled':''} style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f);${!e.secondary_campaign?'background:#F8FAFC;color:#94A3B8':''}">
         <option value="">Ninguna</option>
         ${['aplazo','stori','iforex','casap','cashmind','clivi','admin','liderazgo','naya','sanarai','expx','nido','sueno_americano'].map(c=>`<option value="${c}" ${e.secondary_campaign===c?'selected':''}>${c}</option>`).join('')}
       </select>
+      <div style="font-size:11px;color:#94A3B8;margin-top:4px">${!e.secondary_campaign?'Por ahora no se aceptan nuevas asignaciones de doble campaña (Asistencia no soporta 2 turnos del mismo empleado el mismo día). Si necesitas un caso nuevo, contacta soporte técnico.':'Esta persona ya tiene doble campaña asignada — puedes editarla o quitarla.'}</div>
     </div>
+    <input type="hidden" id="edit-campana-sec-locked" value="${!e.secondary_campaign ? '1' : '0'}"/>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="modal-section">
         <label class="modal-label">LOB</label>
