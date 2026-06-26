@@ -6368,6 +6368,9 @@ function _e_visibleEmpleados() {
   if (currentRole === 'supervisor') {
     const ro = ROLES[currentRole];
     lista = lista.filter(e => e.supervisor_id === ro.id || e.id === ro.id);
+  } else if (['people','head_people','ceo'].includes(currentRole)) {
+    const ro = ROLES[currentRole];
+    lista = lista.filter(e => e.id !== ro.id);
   }
   return lista;
 }
@@ -6404,7 +6407,7 @@ function _e_renderTabs() {
   const esGestionTotal = ['people','head_people','ceo'].includes(currentRole);
   const tabBtn = (id, icon, label) => `<button onclick="_e_mainTab='${id}';_e_render()" style="padding:9px 18px;border:none;border-bottom:2px solid ${_e_mainTab===id?'#0F172A':'transparent'};margin-bottom:-2px;font-size:12px;font-weight:600;font-family:var(--f);cursor:pointer;background:transparent;color:${_e_mainTab===id?'#0F172A':'#94A3B8'}">${icon} ${label}</button>`;
   return `<div style="display:flex;gap:2px;margin-bottom:16px;border-bottom:2px solid #E2E8F0">
-    ${!esGestionTotal ? tabBtn('perfil','🙋','Mi Perfil') : ''}
+    ${tabBtn('perfil','🙋','Mi Perfil')}
     ${tabBtn('lista','👥', esGestionTotal ? 'Lista' : 'Mi Equipo')}
     ${tabBtn('reportes','📊','Reportes')}
   </div>`;
@@ -6820,24 +6823,18 @@ function _e_render() {
   // Agente: solo su propio perfil, sin tabs (no tiene equipo que ver)
   if (currentRole === 'agent') { c.innerHTML = _e_renderPerfil(ROLES[currentRole].id); return; }
 
-  const esGestionTotal = ['people','head_people','ceo'].includes(currentRole);
+  // Supervisor/Manager/Workforce/People/Head of People/CEO: mismas 3 tabs
+  // (Mi Perfil / Lista / Reportes), cada uno con su alcance correspondiente.
+  if (!['lista','reportes','perfil'].includes(_e_mainTab)) _e_mainTab = 'perfil';
+  if (_e_mainTab === 'perfil') { c.innerHTML = _e_renderTabs() + _e_renderPerfil(ROLES[currentRole].id); return; }
 
-  // Supervisor/Manager/Workforce: tabs propias (Mi Perfil / Mi Equipo / Reportes), default Mi Perfil
-  if (!esGestionTotal) {
-    if (!['lista','reportes','perfil'].includes(_e_mainTab)) _e_mainTab = 'perfil';
-    if (_e_mainTab === 'perfil') { c.innerHTML = _e_renderTabs() + _e_renderPerfil(ROLES[currentRole].id); return; }
-    const ro = ROLES[currentRole];
-    const scopeIds = currentRole === 'supervisor'
-      ? _e_EMPLEADOS.filter(e => e.supervisor_id === ro.id || e.id === ro.id).map(e => e.id)
+  const ro = ROLES[currentRole];
+  const scopeIds = currentRole === 'supervisor'
+    ? _e_EMPLEADOS.filter(e => e.supervisor_id === ro.id || e.id === ro.id).map(e => e.id)
+    : ['people','head_people','ceo'].includes(currentRole)
+      ? _e_EMPLEADOS.filter(e => e.id !== ro.id).map(e => e.id) // toda la empresa, menos ellos mismos
       : null; // manager: toda la empresa, sin acotar
-    c.innerHTML = _e_renderTabs() + (_e_mainTab === 'reportes' ? _e_renderReportes(scopeIds) : _e_renderLista());
-    return;
-  }
-
-  const canSeeReportes = ['head_people','people','manager','ceo'].includes(currentRole);
-  if (!canSeeReportes) { c.innerHTML = _e_renderLista(); return; }
-
-  c.innerHTML = _e_renderTabs() + (_e_mainTab === 'reportes' ? _e_renderReportes() : _e_renderLista());
+  c.innerHTML = _e_renderTabs() + (_e_mainTab === 'reportes' ? _e_renderReportes(scopeIds) : _e_renderLista());
 }
 
 function _e_abrirPerfil(id) { _e_perfilAbierto = id; _e_render(); }
