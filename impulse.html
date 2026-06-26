@@ -2324,6 +2324,7 @@ async function _a_punchSB(tipo) {
     employee_id: ro.id,
     punch_date:  hoy,
     punch_time:  ahora,
+    punched_at:  NOW.toISOString(),
     punch_type:  tipo,
     campaign_id: ro.camp,
     created_by:  ro.id,
@@ -4530,16 +4531,29 @@ function _a_renderSupDetail(supId){
 // ─────────────────────────────────────────────
 // ACCIONES
 // ─────────────────────────────────────────────
-function _a_marcarEntrada(){
+let _a_punchBusy = false;
+async function _a_marcarEntrada(){
+  if (_a_punchBusy) return;
   const p = _a_getPunch();
   if(p.entrada) return;
-  p.entrada = NOW.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false});
+  _a_punchBusy = true;
+  const horaLocal = NOW.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false});
+  const ok = await _a_punchSB('entrada');
+  _a_punchBusy = false;
+  if (!ok) { alert('No se pudo registrar tu entrada. Intenta de nuevo o avisa a tu supervisor si sigue fallando.'); return; }
+  p.entrada = horaLocal;
   _a_render();
 }
-function _a_marcarSalida(){
+async function _a_marcarSalida(){
+  if (_a_punchBusy) return;
   const p = _a_getPunch();
   if(!p.entrada || p.salida) return;
-  p.salida = NOW.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false});
+  _a_punchBusy = true;
+  const horaLocal = NOW.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false});
+  const ok = await _a_punchSB('salida');
+  _a_punchBusy = false;
+  if (!ok) { alert('No se pudo registrar tu salida. Intenta de nuevo o avisa a tu supervisor si sigue fallando.'); return; }
+  p.salida = horaLocal;
   _a_render();
 }
 function _a_drillToAgent(id){_a_drillAgent=id;_a_drillSup=null;_a_render()}
