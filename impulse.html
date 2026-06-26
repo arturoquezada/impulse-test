@@ -5559,6 +5559,7 @@ const _t_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIs
 const _t_sb = supabase.createClient(_t_SB_URL, _t_SB_KEY);
 
 let _t_TICKETS = [];
+let _t_EMPLEADOS = [];
 let _t_cargando = false;
 let _t_vistaTickets = 'mis';
 let _t_detalleId = null;
@@ -5571,12 +5572,20 @@ async function _t_cargarTickets() {
     const { data, error } = await query;
     if (error) throw error;
     _t_TICKETS = data || [];
+    const { data: emps } = await _t_sb.from('employees').select('id,full_name');
+    _t_EMPLEADOS = emps || [];
     return true;
   } catch(e) { console.error('Error tickets:', e); return false; }
 }
 
+function _t_nombreEmpleado(id) {
+  const e = _t_EMPLEADOS.find(x => x.id === id);
+  return e ? e.full_name : id;
+}
+
 function _t_statusBadge(s) {
-  const map = {open:'🟡 Abierto', in_progress:'🔵 En proceso', resolved:'🟢 Resuelto', closed:'⚫ Cerrado'};
+  const map = {pending:'🟡 Pendiente', completed:'🟢 Completado',
+    open:'🟡 Pendiente', in_progress:'🟡 Pendiente', resolved:'🟢 Completado', closed:'🟢 Completado'};
   return `<span style="font-size:11px;padding:3px 8px;border-radius:99px;background:#F1F5F9;color:#475569">${map[s]||s}</span>`;
 }
 
@@ -5605,6 +5614,7 @@ function _t_render() {
         <div style="font-weight:700;font-size:13px">${t.type||'Ticket'}${t.subtype?' · '+t.subtype:''}</div>
         <div style="font-size:11px;font-weight:600;color:${_t_prioColor(t.priority)}">${t.priority||''}</div>
       </div>
+      <div style="font-size:12px;color:#94A3B8;margin-bottom:4px">👤 ${_t_nombreEmpleado(t.employee_id)}</div>
       <div style="font-size:12px;color:#64748B;margin-bottom:8px">${(t.description||'').slice(0,120)}</div>
       <div style="display:flex;gap:12px;align-items:center;font-size:11px;color:#94A3B8">
         ${_t_statusBadge(t.status)}
@@ -5640,32 +5650,51 @@ function _t_renderDetalle(id) {
     </div>
     <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:20px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
-        ${[['Empleado',t.employee_id],['Prioridad',`<span style="color:${_t_prioColor(t.priority)};font-weight:700">${t.priority||'—'}</span>`],
+        ${[['Empleado',_t_nombreEmpleado(t.employee_id)],['Prioridad',`<span style="color:${_t_prioColor(t.priority)};font-weight:700">${t.priority||'—'}</span>`],
            ['Creado',(t.created_at||'—').slice(0,10)],['Fecha límite',t.due_at?t.due_at.slice(0,10):'—']].map(([l,v])=>
           `<div><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${l}</div><div style="font-size:13px">${v}</div></div>`).join('')}
       </div>
       <div style="margin-bottom:16px"><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Descripción</div>
       <div style="font-size:13px;color:#334155;line-height:1.6">${t.description||'—'}</div></div>
-      ${t.resolution_notes?`<div><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Resolución</div><div style="font-size:13px;color:#334155">${t.resolution_notes}</div></div>`:''}
-      ${isSup && t.status!=='resolved'?`<div style="margin-top:16px;display:flex;gap:8px">
-        <button onclick="_t_resolverTicket('${t.id}')" style="padding:8px 16px;background:#DCFCE7;color:#16A34A;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✅ Marcar resuelto</button>
+      ${t.resolution_notes?`<div><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Respuesta de People</div><div style="font-size:13px;color:#334155">${t.resolution_notes}</div></div>`:''}
+      ${isSup && t.status!=='completed' && t.status!=='resolved'?`<div style="margin-top:16px;display:flex;gap:8px">
+        <button onclick="_t_resolverTicket('${t.id}')" style="padding:8px 16px;background:#DCFCE7;color:#16A34A;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✅ Marcar como completado</button>
       </div>`:''}
     </div>
   </div>`;
 }
 
+const _T_CATEGORIAS = {
+  'Verificación de Empleo': ['Carta de Recomendación','Carta Patronal','Carta de referencia','Carta de antigüedad'],
+  'Nomina': ['Cambio de cuenta','Recibos de Nomina','Problemas en la Nomina'],
+  'Rendimiento y Gestion de Personal': ['Cambio de jerarquia','Cambio de campaña','Cambio de horario','Promoción','Dar de Baja','Solicitud de PIP','Solicitud de Acta'],
+  'Queja o Sugerencia': ['Queja','Sugerencia'],
+  'Denuncia': ['Anonimo','Dar tu nombre'],
+  'Otros': ['Otros'],
+};
+
+function _t_actualizarSubtipos() {
+  const cat = document.getElementById('nt-categoria')?.value;
+  const opts = _T_CATEGORIAS[cat] || [];
+  const sel = document.getElementById('nt-subtipo');
+  if (sel) sel.innerHTML = opts.map(o => `<option value="${o}">${o}</option>`).join('');
+}
+
 function _t_abrirNuevo() {
   document.getElementById('modalTitle').textContent = 'Nuevo Ticket HR';
   document.getElementById('modalSub').textContent = '';
+  const primeraCategoria = Object.keys(_T_CATEGORIAS)[0];
   document.getElementById('modalBody').innerHTML = `
     <div class="modal-section">
-      <label class="modal-label">TIPO</label>
-      <select id="nt-tipo" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
-        <option value="vacaciones">Vacaciones</option>
-        <option value="permiso">Permiso</option>
-        <option value="nomina">Nómina</option>
-        <option value="equipo">Equipo / Material</option>
-        <option value="otro">Otro</option>
+      <label class="modal-label">CATEGORÍA</label>
+      <select id="nt-categoria" onchange="_t_actualizarSubtipos()" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+        ${Object.keys(_T_CATEGORIAS).map(c=>`<option value="${c}">${c}</option>`).join('')}
+      </select>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">SUBTIPO</label>
+      <select id="nt-subtipo" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
+        ${(_T_CATEGORIAS[primeraCategoria]||[]).map(o=>`<option value="${o}">${o}</option>`).join('')}
       </select>
     </div>
     <div class="modal-section">
@@ -5679,14 +5708,15 @@ function _t_abrirNuevo() {
 }
 
 async function _t_crearTicket() {
-  const tipo = document.getElementById('nt-tipo')?.value;
+  const categoria = document.getElementById('nt-categoria')?.value;
+  const subtipo = document.getElementById('nt-subtipo')?.value;
   const desc = document.getElementById('nt-desc')?.value?.trim();
   if (!desc) { alert('Escribe una descripción'); return; }
   const ro = ROLES[currentRole];
   const id = 'TKT-' + Date.now();
   const { error } = await _t_sb.from('hr_tickets').insert({
-    id, employee_id: ro.id, type: tipo, description: desc,
-    status: 'open', priority: 'medium', sla_hours: 48,
+    id, employee_id: ro.id, type: categoria, subtype: subtipo, description: desc,
+    priority: 'medium', sla_hours: 48,
     due_at: new Date(Date.now() + 48*3600000).toISOString(),
   });
   if (error) { alert('Error: ' + error.message); return; }
@@ -5697,23 +5727,23 @@ async function _t_crearTicket() {
 }
 
 async function _t_resolverTicket(id) {
-  document.getElementById('modalTitle').textContent = 'Resolver ticket';
+  document.getElementById('modalTitle').textContent = 'Completar ticket';
   document.getElementById('modalSub').textContent = '';
   document.getElementById('modalBody').innerHTML = `
     <div class="modal-section">
-      <label class="modal-label">NOTAS DE RESOLUCIÓN</label>
-      <textarea id="tr-notas" rows="3" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)" placeholder="Describe cómo se resolvió..."></textarea>
+      <label class="modal-label">RESPUESTA DE PEOPLE</label>
+      <textarea id="tr-notas" rows="3" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)" placeholder="Escribe la respuesta o resolución para el empleado..."></textarea>
     </div>`;
   document.getElementById('modalFooter').innerHTML = `
     <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
-    <button class="btn-primary" onclick="_t_confirmarResolver('${id}')">Confirmar</button>`;
+    <button class="btn-primary" onclick="_t_confirmarResolver('${id}')">Marcar como completado</button>`;
   document.getElementById('modalBackdrop').style.display = 'flex';
 }
 
 async function _t_confirmarResolver(id) {
   const notas = document.getElementById('tr-notas')?.value || '';
   const { error } = await _t_sb.from('hr_tickets').update({
-    status: 'resolved', resolution_notes: notas,
+    status: 'completed', resolution_notes: notas,
     resolved_at: new Date().toISOString(),
   }).eq('id', id);
   if (error) { alert('Error: ' + error.message); return; }
