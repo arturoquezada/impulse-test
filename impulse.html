@@ -7236,7 +7236,7 @@ async function _e_abrirEditar(empId) {
       <label class="modal-label">SUPERVISOR</label>
       <select id="edit-supervisor" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
         <option value="">Sin supervisor asignado</option>
-        ${_e_EMPLEADOS.filter(x=>x.status==='active'&&['supervisor','manager'].includes(x.system_role)&&x.id!==e.id).map(x=>`<option value="${x.id}" data-name="${x.full_name}" data-email="${x.email||''}" ${e.supervisor_id===x.id?'selected':''}>${x.full_name}</option>`).join('')}
+        ${_e_EMPLEADOS.filter(x=>x.status==='active'&&(['supervisor','manager'].includes(x.system_role)||x.campaign_id==='admin')&&x.id!==e.id).map(x=>`<option value="${x.id}" data-name="${x.full_name}" data-email="${x.email||''}" ${e.supervisor_id===x.id?'selected':''}>${x.full_name}</option>`).join('')}
       </select>
     </div>
 
@@ -7490,7 +7490,7 @@ function _e_abrirAlta() {
       <label class="modal-label">SUPERVISOR</label>
       <select id="alta-supervisor" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
         <option value="">Sin supervisor asignado</option>
-        ${_e_EMPLEADOS.filter(e=>e.status==='active'&&['supervisor','manager'].includes(e.system_role)).map(e=>`<option value="${e.id}" data-name="${e.full_name}" data-email="${e.email||''}">${e.full_name}</option>`).join('')}
+        ${_e_EMPLEADOS.filter(e=>e.status==='active'&&(['supervisor','manager'].includes(e.system_role)||e.campaign_id==='admin')).map(e=>`<option value="${e.id}" data-name="${e.full_name}" data-email="${e.email||''}">${e.full_name}</option>`).join('')}
       </select>
     </div>
 
