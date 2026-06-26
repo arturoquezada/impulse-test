@@ -5584,8 +5584,7 @@ function _t_nombreEmpleado(id) {
 }
 
 function _t_statusBadge(s) {
-  const map = {pending:'🟡 Pendiente', completed:'🟢 Completado',
-    open:'🟡 Pendiente', in_progress:'🟡 Pendiente', resolved:'🟢 Completado', closed:'🟢 Completado'};
+  const map = {pending:'🟡 Pendiente', in_progress:'🔵 En proceso', resolved:'🟢 Completado', cancelled:'⚫ Cancelado'};
   return `<span style="font-size:11px;padding:3px 8px;border-radius:99px;background:#F1F5F9;color:#475569">${map[s]||s}</span>`;
 }
 
@@ -5611,7 +5610,7 @@ function _t_render() {
   lista.forEach(t => {
     rows += `<div onclick="_t_detalleId='${t.id}';_t_render()" style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 2px 8px rgba(15,23,42,.08)'" onmouseout="this.style.boxShadow=''">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-        <div style="font-weight:700;font-size:13px">${t.type||'Ticket'}${t.subtype?' · '+t.subtype:''}</div>
+        <div style="font-weight:700;font-size:13px">${_t_categoriaLabel(t.type)||'Ticket'}${t.subtype?' · '+t.subtype:''}</div>
         <div style="font-size:11px;font-weight:600;color:${_t_prioColor(t.priority)}">${t.priority||''}</div>
       </div>
       <div style="font-size:12px;color:#94A3B8;margin-bottom:4px">👤 ${_t_nombreEmpleado(t.employee_id)}</div>
@@ -5645,7 +5644,7 @@ function _t_renderDetalle(id) {
   c.innerHTML = `<div style="max-width:700px;margin:0 auto">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
       <button onclick="_t_detalleId=null;_t_render()" style="border:1px solid #E2E8F0;border-radius:8px;padding:7px 14px;background:#fff;cursor:pointer;font-size:12px;font-weight:600">← Volver</button>
-      <div style="font-size:15px;font-weight:700">${t.type||'Ticket'}${t.subtype?' · '+t.subtype:''}</div>
+      <div style="font-size:15px;font-weight:700">${_t_categoriaLabel(t.type)||'Ticket'}${t.subtype?' · '+t.subtype:''}</div>
       ${_t_statusBadge(t.status)}
     </div>
     <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:20px">
@@ -5657,7 +5656,7 @@ function _t_renderDetalle(id) {
       <div style="margin-bottom:16px"><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Descripción</div>
       <div style="font-size:13px;color:#334155;line-height:1.6">${t.description||'—'}</div></div>
       ${t.resolution_notes?`<div><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Respuesta de People</div><div style="font-size:13px;color:#334155">${t.resolution_notes}</div></div>`:''}
-      ${isSup && t.status!=='completed' && t.status!=='resolved'?`<div style="margin-top:16px;display:flex;gap:8px">
+      ${isSup && !['resolved','cancelled'].includes(t.status)?`<div style="margin-top:16px;display:flex;gap:8px">
         <button onclick="_t_resolverTicket('${t.id}')" style="padding:8px 16px;background:#DCFCE7;color:#16A34A;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✅ Marcar como completado</button>
       </div>`:''}
     </div>
@@ -5672,6 +5671,19 @@ const _T_CATEGORIAS = {
   'Denuncia': ['Anonimo','Dar tu nombre'],
   'Otros': ['Otros'],
 };
+
+// La base solo acepta estos slugs exactos en hr_tickets.type (CHECK constraint
+// valid_ticket_type) — el dropdown muestra el texto bonito, pero se manda el slug.
+const _T_CATEGORIA_SLUG = {
+  'Verificación de Empleo': 'verificacion_empleo',
+  'Nomina': 'nomina',
+  'Rendimiento y Gestion de Personal': 'rendimiento_personal',
+  'Queja o Sugerencia': 'queja_sugerencia',
+  'Denuncia': 'denuncia',
+  'Otros': 'otros',
+};
+const _T_SLUG_CATEGORIA = Object.fromEntries(Object.entries(_T_CATEGORIA_SLUG).map(([k,v])=>[v,k]));
+function _t_categoriaLabel(slug) { return _T_SLUG_CATEGORIA[slug] || slug; }
 
 function _t_actualizarSubtipos() {
   const cat = document.getElementById('nt-categoria')?.value;
@@ -5715,8 +5727,8 @@ async function _t_crearTicket() {
   const ro = ROLES[currentRole];
   const id = 'TKT-' + Date.now();
   const { error } = await _t_sb.from('hr_tickets').insert({
-    id, employee_id: ro.id, type: categoria, subtype: subtipo, description: desc,
-    priority: 'medium', sla_hours: 48,
+    id, employee_id: ro.id, type: _T_CATEGORIA_SLUG[categoria] || 'otros', subtype: subtipo, description: desc,
+    priority: 'normal', sla_hours: 48,
     due_at: new Date(Date.now() + 48*3600000).toISOString(),
   });
   if (error) { alert('Error: ' + error.message); return; }
@@ -5743,7 +5755,7 @@ async function _t_resolverTicket(id) {
 async function _t_confirmarResolver(id) {
   const notas = document.getElementById('tr-notas')?.value || '';
   const { error } = await _t_sb.from('hr_tickets').update({
-    status: 'completed', resolution_notes: notas,
+    status: 'resolved', resolution_notes: notas,
     resolved_at: new Date().toISOString(),
   }).eq('id', id);
   if (error) { alert('Error: ' + error.message); return; }
