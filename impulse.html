@@ -6426,7 +6426,7 @@ function _e_visibleEmpleados() {
       (e.campaign_id||'').toLowerCase().includes(q)
     );
   }
-  if (currentRole === 'supervisor') {
+  if (['supervisor','manager'].includes(currentRole)) {
     const ro = ROLES[currentRole];
     lista = lista.filter(e => e.supervisor_id === ro.id && e.id !== ro.id);
   } else if (['people','head_people','ceo'].includes(currentRole)) {
@@ -6890,11 +6890,11 @@ function _e_render() {
   if (_e_mainTab === 'perfil') { c.innerHTML = _e_renderTabs() + _e_renderPerfil(ROLES[currentRole].id); return; }
 
   const ro = ROLES[currentRole];
-  const scopeIds = currentRole === 'supervisor'
+  const scopeIds = ['supervisor','manager'].includes(currentRole)
     ? _e_EMPLEADOS.filter(e => e.supervisor_id === ro.id && e.id !== ro.id).map(e => e.id)
     : ['people','head_people','ceo'].includes(currentRole)
       ? _e_EMPLEADOS.filter(e => e.id !== ro.id).map(e => e.id) // toda la empresa, menos ellos mismos
-      : null; // manager: toda la empresa, sin acotar
+      : null;
   c.innerHTML = _e_renderTabs() + (_e_mainTab === 'reportes' ? _e_renderReportes(scopeIds) : _e_renderLista());
 }
 
