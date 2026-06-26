@@ -3332,7 +3332,7 @@ function _a_renderManager(){
 
   // Tabla de supervisores con punch y botón de falta
   let supRows='';
-  _a_filtrarSups(_a_SUPS_USE).forEach(s=>{
+  _a_filtrarSups(_a_SUPS_REAL).forEach(s=>{
     const pct=Math.round((s.onTime/s.agents)*100);
     const efic=Math.round((s.hoursWorked/s.hoursContracted)*100);
     const btnFalta = (s.status==='sin_punch')
@@ -3540,7 +3540,7 @@ function _a_renderPeople(){
   const pendComp=_a_FALTAS_LOG.filter(f=>f.estado==='pendiente_comprobante').length;
 
   let supRows='';
-  _a_filtrarSups(_a_SUPS_USE).forEach(s=>{
+  _a_filtrarSups(_a_SUPS_REAL).forEach(s=>{
     const pct=Math.round((s.onTime/s.agents)*100);
     supRows+=`<tr onclick="_a_drillToSup('${s.id}')">
       <td><div class="agent-row-name">${s.name}</div><div class="agent-row-id">${s.id}</div></td>
