@@ -1962,7 +1962,7 @@ const _a_dateFilter = {
   label: 'Hoy'
 };
 
-function _a_setPreset(mode){
+async function _a_setPreset(mode){
   const d = new Date(NOW);
   _a_dateFilter.mode = mode;
   if(mode==='today'){
@@ -2006,10 +2006,33 @@ function _a_setPreset(mode){
   const ti = document.getElementById('dfTo');
   if(fi) fi.value = _a_dateFilter.from;
   if(ti) ti.value = _a_dateFilter.to;
+  await _a_cargarQDAYS(ROLES[currentRole].id, _a_dateFilter.from, _a_dateFilter.to);
   _a_render();
 }
 
-function _a_applyCustom(){
+// Desplaza el rango activo hacia atrás (-1) o adelante (1), conservando su
+// tamaño, y recarga los datos reales de ese nuevo rango.
+async function _a_navDate(direction, empId){
+  const id = empId || ROLES[currentRole].id;
+  const span = _a_rangeDays();
+  const newFrom = ymd(addDaysDate(new Date(_a_dateFilter.from+'T12:00:00'), direction*span));
+  const newTo   = ymd(addDaysDate(new Date(_a_dateFilter.to+'T12:00:00'),   direction*span));
+  if (newTo > ymd(NOW) && direction > 0) return; // no navegar al futuro
+  _a_dateFilter.mode = 'custom';
+  _a_dateFilter.from = newFrom;
+  _a_dateFilter.to   = newTo;
+  const dias = _a_rangeDays();
+  _a_dateFilter.label = `${fmtDateShort(newFrom)} → ${fmtDateShort(newTo)} (${dias}d)`;
+  const fi = document.getElementById('dfFrom');
+  const ti = document.getElementById('dfTo');
+  if(fi) fi.value = newFrom;
+  if(ti) ti.value = newTo;
+  await _a_cargarQDAYS(id, newFrom, newTo);
+  _a_render();
+}
+function addDaysDate(d, n){ const r = new Date(d); r.setDate(r.getDate()+n); return r; }
+
+async function _a_applyCustom(){
   const fi = document.getElementById('dfFrom');
   const ti = document.getElementById('dfTo');
   if(!fi||!ti) return;
@@ -2021,6 +2044,7 @@ function _a_applyCustom(){
   // Calcular días en rango
   const dias = Math.round((new Date(ti.value)-new Date(fi.value))/(1000*60*60*24))+1;
   _a_dateFilter.label = `${fmtDateShort(fi.value)} → ${fmtDateShort(ti.value)} (${dias}d)`;
+  await _a_cargarQDAYS(ROLES[currentRole].id, fi.value, ti.value);
   _a_render();
 }
 
@@ -2097,6 +2121,44 @@ let _a_KPI_GLOBAL = { total:0, onTime:0, late:0, absent:0, noOut:0 };
 let _a_SUPS_REAL  = [];  // supervisores con asistencia de hoy
 let _a_CAMP_REAL  = {};  // { campaign_id: {total,onTime,late,absent} }
 
+// Carga _a_QDAYS para un rango arbitrario de fechas (lo usa la carga inicial
+// y también los presets/nav del filtro de fechas, para que el rango mostrado
+// siempre tenga datos reales detrás, no solo los últimos 15 días fijos).
+async function _a_cargarQDAYS(empId, from, to) {
+  const { data: summary } = await _a_sb
+    .from('attendance_daily_summary')
+    .select('*')
+    .eq('employee_id', empId)
+    .gte('punch_date', from)
+    .lte('punch_date', to)
+    .order('punch_date');
+
+  const dias = [];
+  let cur = new Date(from + 'T12:00:00');
+  const end = new Date(to + 'T12:00:00');
+  while (cur <= end) {
+    const fecha = ymd(cur);
+    const dow = cur.getDay();
+    if (dow === 0 || dow === 6) {
+      dias.push({ fecha, weekend: true });
+    } else {
+      const s = summary?.find(x => x.punch_date === fecha);
+      dias.push({
+        fecha,
+        entrada_at:           s?.time_in    ? `${fecha}T${s.time_in}-06:00`   : null,
+        salida_at:            s?.time_out   ? `${fecha}T${s.time_out}-06:00`  : null,
+        segundos_trabajados:  s ? Math.round((s.hours_worked||0) * 3600) : 0,
+        segundos_tarde:       s ? (s.minutes_late||0) * 60 : 0,
+        es_retardo:           s ? (s.minutes_late||0) > 0 : false,
+        estatus:              s?.attendance_status || (s ? 'Normal' : 'Sin registro'),
+        tipo_falta:           s?.exception_type || null,
+      });
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  _a_QDAYS = dias;
+}
+
 async function _a_cargarDatos() {
   try {
     const ro = ROLES[currentRole];
@@ -2118,40 +2180,8 @@ async function _a_cargarDatos() {
       ps.salida  = salida  ? salida.punch_time.slice(0,5)  : null;
     }
 
-    // 2. Historial de la quincena (últimos 15 días)
-    const quincenaStart = addDays(hoy, -14);
-    const { data: summary } = await _a_sb
-      .from('attendance_daily_summary')
-      .select('*')
-      .eq('employee_id', ro.id)
-      .gte('punch_date', quincenaStart)
-      .lte('punch_date', hoy)
-      .order('punch_date');
-
-    _a_QDAYS = [];
-    // Generar todos los días del rango
-    let cur = new Date(quincenaStart + 'T12:00:00');
-    const end = new Date(hoy + 'T12:00:00');
-    while (cur <= end) {
-      const fecha = ymd(cur);
-      const dow = cur.getDay();
-      if (dow === 0 || dow === 6) {
-        _a_QDAYS.push({ fecha, weekend: true });
-      } else {
-        const s = summary?.find(x => x.punch_date === fecha);
-        _a_QDAYS.push({
-          fecha,
-          entrada_at:           s?.time_in    ? `${fecha}T${s.time_in}-06:00`   : null,
-          salida_at:            s?.time_out   ? `${fecha}T${s.time_out}-06:00`  : null,
-          segundos_trabajados:  s ? Math.round((s.hours_worked||0) * 3600) : 0,
-          segundos_tarde:       s ? (s.minutes_late||0) * 60 : 0,
-          es_retardo:           s ? (s.minutes_late||0) > 0 : false,
-          estatus:              s?.attendance_status || (s ? 'Normal' : 'Sin registro'),
-          tipo_falta:           s?.exception_type || null,
-        });
-      }
-      cur.setDate(cur.getDate() + 1);
-    }
+    // 2. Historial del rango activo del filtro de fechas
+    await _a_cargarQDAYS(ro.id, _a_dateFilter.from, _a_dateFilter.to);
 
     // 3. Equipo del supervisor (hoy)
     if (['supervisor','manager','people','head_people','workforce'].includes(currentRole)) {
@@ -3153,9 +3183,9 @@ function _a_renderAgent(){
   ${_a_dateFilterHTML()}
   <div class="card">
     <div class="q-nav">
-      <button class="q-nav-btn">← Anterior</button>
+      <button class="q-nav-btn" onclick="_a_navDate(-1)">← Anterior</button>
       <div><div class="q-nav-label">${_a_dateFilter.label}</div><div class="q-nav-range">${fmtDateShort(_a_dateFilter.from)} → ${fmtDateShort(_a_dateFilter.to)}</div></div>
-      <button class="q-nav-btn">Siguiente →</button>
+      <button class="q-nav-btn" onclick="_a_navDate(1)">Siguiente →</button>
     </div>
     <div class="q-summary">
       <div class="qs-box worked"><div class="qs-label">Total trabajado</div><div class="qs-val">${_a_secsHHMM(tw)}</div></div>
@@ -3729,7 +3759,7 @@ function _a_renderCEO(){
     const camp=_a_CAMP_DATA.find(c=>c.key===_a_ceoDrillCamp)||_a_CAMP_DATA[0];
     return`${_a_roleSwitcherHTML()}
     <div class="drilldown-header">
-      <button class="back-btn" onclick="_a_ceoDrillAg=null;_a_render()">← ${sup.name}</button>
+      <button class="back-btn" onclick="(async()=>{_a_ceoDrillAg=null;_a_cargando=true;_a_render();await _a_cargarQDAYS(ROLES[currentRole].id,_a_dateFilter.from,_a_dateFilter.to);_a_cargando=false;_a_render();})()">← ${sup.name}</button>
       <div style="font-size:14px;font-weight:600">${a.name}</div>
       <span class="pill pill-gray">${a.id}</span>
       ${_a_agentBadge(a.status,a.falta)}
@@ -3745,9 +3775,9 @@ function _a_renderCEO(){
     </div>
     <div class="card">
       <div class="q-nav">
-        <button class="q-nav-btn">← Anterior</button>
+        <button class="q-nav-btn" onclick="_a_navDate(-1,'${a.id}')">← Anterior</button>
         <div><div class="q-nav-label">${_a_dateFilter.label}</div><div class="q-nav-range">${fmtDateShort(_a_dateFilter.from)} → ${fmtDateShort(_a_dateFilter.to)}</div></div>
-        <button class="q-nav-btn">Siguiente →</button>
+        <button class="q-nav-btn" onclick="_a_navDate(1,'${a.id}')">Siguiente →</button>
       </div>
       <div class="q-summary">
         <div class="qs-box worked"><div class="qs-label">Trabajado</div><div class="qs-val">${_a_secsHHMM(tw)}</div></div>
@@ -3772,7 +3802,7 @@ function _a_renderCEO(){
     const absent=_a_TEAM.filter(a=>a.status==='falta').length;
     let agRows='';
     _a_TEAM.forEach(a=>{
-      agRows+=`<tr onclick="_a_ceoDrillAg='${a.id}';_a_render()">
+      agRows+=`<tr onclick="_a_ceoDrillToAgent('${a.id}')">
         <td><div class="agent-row-name">${a.name}</div><div class="agent-row-id">${a.id}</div></td>
         <td style="font-family:'DM Mono',monospace;font-size:12px">${a.entrada||'—'}</td>
         <td style="font-family:'DM Mono',monospace;font-size:12px">${a.salida||'—'}</td>
@@ -4470,9 +4500,9 @@ function _a_renderAgentDetail(agentId){
   </div>
   <div class="card">
     <div class="q-nav">
-      <button class="q-nav-btn">← Anterior</button>
+      <button class="q-nav-btn" onclick="_a_navDate(-1,'${a.id}')">← Anterior</button>
       <div><div class="q-nav-label">${_a_dateFilter.label}</div><div class="q-nav-range">${fmtDateShort(_a_dateFilter.from)} → ${fmtDateShort(_a_dateFilter.to)}</div></div>
-      <button class="q-nav-btn">Siguiente →</button>
+      <button class="q-nav-btn" onclick="_a_navDate(1,'${a.id}')">Siguiente →</button>
     </div>
     <div class="q-summary">
       <div class="qs-box worked"><div class="qs-label">Trabajado</div><div class="qs-val">${_a_secsHHMM(tw)}</div></div>
@@ -4561,9 +4591,25 @@ async function _a_marcarSalida(){
   p.salida = horaLocal;
   _a_render();
 }
-function _a_drillToAgent(id){_a_drillAgent=id;_a_drillSup=null;_a_render()}
+async function _a_drillToAgent(id){
+  _a_drillAgent=id;_a_drillSup=null;
+  _a_cargando=true;_a_render();
+  await _a_cargarQDAYS(id, _a_dateFilter.from, _a_dateFilter.to);
+  _a_cargando=false;_a_render();
+}
+async function _a_ceoDrillToAgent(id){
+  _a_ceoDrillAg=id;
+  _a_cargando=true;_a_render();
+  await _a_cargarQDAYS(id, _a_dateFilter.from, _a_dateFilter.to);
+  _a_cargando=false;_a_render();
+}
 function _a_drillToSup(id){_a_drillSup=id;_a_drillAgent=null;_a_render();}
-function _a_backToTeam(){_a_drillAgent=null;_a_drillSup=null;_a_render()}
+async function _a_backToTeam(){
+  _a_drillAgent=null;_a_drillSup=null;
+  _a_cargando=true;_a_render();
+  await _a_cargarQDAYS(ROLES[currentRole].id, _a_dateFilter.from, _a_dateFilter.to);
+  _a_cargando=false;_a_render();
+}
 function _a_filterTeam(val){
   document.querySelectorAll('#teamBody tr').forEach(r=>{
     r.style.display=r.textContent.toLowerCase().includes(val.toLowerCase())?'':'none';
