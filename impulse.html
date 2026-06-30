@@ -3205,13 +3205,15 @@ function _a_quincenaTable(){
   const pct=validos.length?Math.round(((validos.length-tr)/validos.length)*100):100;
   let rows='';
   validos.forEach((d,i)=>{
-    rows+=`<tr onclick="_a_openDayModal(${_a_QDAYS.filter(x=>!x.weekend).indexOf(d)})">
+    const motivo = d.motivo_retardo || d.motivo_falta || '';
+    rows+=`<tr onclick="_a_openDayModal(${_a_QDAYS.filter(x=>!x.weekend).indexOf(d)})" style="cursor:pointer">
       <td>${fmtDate(d.fecha)}</td>
       <td style="font-family:'DM Mono',monospace">${_a_fmtTime(d.entrada_at)}</td>
       <td style="font-family:'DM Mono',monospace">${_a_fmtTime(d.salida_at)}</td>
       <td style="font-family:'DM Mono',monospace">${_a_secsHHMM(d.segundos_trabajados)}</td>
       <td style="font-family:'DM Mono',monospace;color:${d.segundos_tarde>0?'#B45309':'#94A3B8'}">${_a_secsMin(d.segundos_tarde)}</td>
       <td>${_a_statusBadge(d)}</td>
+      <td style="font-size:12px;color:${d.motivo_retardo?'#92400E':d.motivo_falta?'#991B1B':'#94A3B8'};max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${motivo||'—'}</td>
     </tr>`;
   });
   return{rows,tw,tl,tr,pct,count:validos.length};
@@ -3267,7 +3269,7 @@ function _a_renderAgent(){
     <div class="tbl-wrap">
       <div class="tbl-head-dark">Detalle por día — click para ver más</div>
       <div style="overflow-x:auto"><table style="min-width:560px">
-        <thead><tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Trabajado</th><th>Tarde</th><th>Status</th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Trabajado</th><th>Tarde</th><th>Status</th><th>Motivo</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
     </div>
@@ -3858,7 +3860,7 @@ function _a_renderCEO(){
       </div>
       <div class="tbl-wrap"><div class="tbl-head-dark">Detalle por día</div>
       <div style="overflow-x:auto"><table style="min-width:560px">
-        <thead><tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Trabajado</th><th>Tarde</th><th>Status</th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Trabajado</th><th>Tarde</th><th>Status</th><th>Motivo</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div></div>
     </div>`;
@@ -4584,7 +4586,7 @@ function _a_renderAgentDetail(agentId){
     <div class="tbl-wrap">
       <div class="tbl-head-dark">Detalle por día</div>
       <div style="overflow-x:auto"><table style="min-width:560px">
-        <thead><tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Trabajado</th><th>Tarde</th><th>Status</th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Trabajado</th><th>Tarde</th><th>Status</th><th>Motivo</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
     </div>
