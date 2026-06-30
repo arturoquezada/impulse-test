@@ -2133,6 +2133,16 @@ async function _a_cargarQDAYS(empId, from, to) {
     .lte('punch_date', to)
     .order('punch_date');
 
+  // Notas (motivo de retardo) van en attendance_punches.notes del punch de entrada,
+  // no en la vista de resumen — se traen aparte y se cruzan por fecha.
+  const { data: notesData } = await _a_sb
+    .from('attendance_punches')
+    .select('punch_date, notes')
+    .eq('employee_id', empId)
+    .eq('punch_type', 'entrada')
+    .gte('punch_date', from)
+    .lte('punch_date', to);
+
   const dias = [];
   let cur = new Date(from + 'T12:00:00');
   const end = new Date(to + 'T12:00:00');
@@ -2143,6 +2153,7 @@ async function _a_cargarQDAYS(empId, from, to) {
       dias.push({ fecha, weekend: true });
     } else {
       const s = summary?.find(x => x.punch_date === fecha);
+      const n = notesData?.find(x => x.punch_date === fecha);
       dias.push({
         fecha,
         entrada_at:           s?.time_in    ? `${fecha}T${s.time_in}-06:00`   : null,
@@ -2152,6 +2163,7 @@ async function _a_cargarQDAYS(empId, from, to) {
         es_retardo:           s ? (s.minutes_late||0) > 0 : false,
         estatus:              s?.attendance_status || (s ? 'Normal' : 'Sin registro'),
         tipo_falta:           s?.exception_type || null,
+        motivo_retardo:       n?.notes || null,
       });
     }
     cur.setDate(cur.getDate() + 1);
@@ -2647,14 +2659,35 @@ function _a_abrirModalRetardo(agentId){
   document.getElementById('modalBackdrop').style.display='flex';
 }
 
-function _a_guardarMotivosRetardo(){
+async function _a_guardarMotivosRetardo(){
   const motivo = document.getElementById('retardo-motivo')?.value;
   if(!motivo){ alert('Selecciona un motivo'); return; }
   const rec = _a_RETARDO_LOG.find(r=>r.id===_a_retardoModal.retardoId);
   if(!rec) return;
+
+  const btn = document.querySelector('.modal-footer .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+
+  const { error } = await _a_sb.from('attendance_punches')
+    .update({ notes: motivo })
+    .eq('employee_id', rec.agentId)
+    .eq('punch_date', rec.fecha)
+    .eq('punch_type', 'entrada');
+
+  if (error) {
+    console.error('Error guardando motivo de retardo:', error);
+    alert('No se pudo guardar el motivo en Supabase. Intenta de nuevo.\n\n' + error.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar motivo'; }
+    return;
+  }
+
   rec.motivo     = motivo;
   rec.marcadoPor = 'supervisor';
   rec.pendiente  = false;
+
+  // Refrescar el día desde Supabase para que "Detalle por día" muestre el motivo
+  await _a_cargarQDAYS(rec.agentId, _a_dateFilter.from, _a_dateFilter.to);
+
   closeModal();
   _a_render();
 }
@@ -2853,7 +2886,7 @@ function _a_onMotivoChange(motivo){
   if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; }
 }
 
-function _a_guardarFalta(){
+async function _a_guardarFalta(){
   const motivo = document.getElementById('falta-motivo')?.value;
   if(!motivo){ alert('Selecciona un motivo'); return; }
   const nota = document.getElementById('falta-nota')?.value || '';
@@ -2865,6 +2898,24 @@ function _a_guardarFalta(){
   if(!a) return;
 
   const estadoDisplay = cat==='incapacidad' ? 'pendiente_comprobante' : cat;
+  const hoy = ymd(NOW);
+  const notaCompleta = nota ? `${motivo} — ${nota}` : motivo;
+
+  const btn = document.getElementById('btnGuardarFalta');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+
+  const { error } = await _a_sb.from('attendance_exceptions').upsert({
+    employee_id: a.id,
+    exception_date: hoy,
+    type: cat,
+    notes: notaCompleta,
+    status: 'pending',
+  }, { onConflict: 'employee_id,exception_date' });
+
+  if (error) {
+    console.error('Error guardando falta:', error);
+    alert('No se pudo guardar la falta en Supabase. Se quedó solo localmente — intenta de nuevo.\n\n' + error.message);
+  }
 
   a.status = 'falta';
   a.falta  = {
@@ -2879,11 +2930,14 @@ function _a_guardarFalta(){
 
   _a_FALTAS_LOG.unshift({
     agentId: a.id, agentName: a.name,
-    fecha: ymd(NOW), categoria: cat,
+    fecha: hoy, categoria: cat,
     motivo, marcadaPor:'supervisor',
     supId:'CX00501', hora: a.falta.hora,
     estado: estadoDisplay,
   });
+
+  // Refrescar el día desde Supabase para que el modal de "Detalle por día" lo refleje
+  await _a_cargarQDAYS(a.id, _a_dateFilter.from, _a_dateFilter.to);
 
   closeModal();
   _a_render();
@@ -2962,7 +3016,7 @@ function _a_abrirModalFaltaSup(supId){
   document.getElementById('modalBackdrop').style.display='flex';
 }
 
-function _a_guardarFaltaSup(){
+async function _a_guardarFaltaSup(){
   const motivo = document.getElementById('falta-motivo')?.value;
   if(!motivo){ alert('Selecciona un motivo'); return; }
   const nota = document.getElementById('falta-nota')?.value || '';
@@ -2972,6 +3026,22 @@ function _a_guardarFaltaSup(){
   if(!s) return;
 
   const estadoDisplay = cat==='incapacidad' ? 'pendiente_comprobante' : cat;
+  const hoy = ymd(NOW);
+  const notaCompleta = nota ? `${motivo} — ${nota}` : motivo;
+
+  const { error } = await _a_sb.from('attendance_exceptions').upsert({
+    employee_id: s.id,
+    exception_date: hoy,
+    type: cat,
+    notes: notaCompleta,
+    status: 'pending',
+  }, { onConflict: 'employee_id,exception_date' });
+
+  if (error) {
+    console.error('Error guardando falta de supervisor:', error);
+    alert('No se pudo guardar en Supabase. Intenta de nuevo.\n\n' + error.message);
+  }
+
   s.status = 'falta';
   s.falta  = { categoria:cat, estado:estadoDisplay, motivo, marcadaPor:'manager', hora: NOW.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false}), nota, descuenta_nomina:true };
   closeModal();
@@ -4639,6 +4709,7 @@ function _a_openDayModal(idx){
       <div class="kv"><span class="k">Es retardo</span><span class="v">${d.es_retardo?'<span style="color:#DC2626;font-weight:700">Sí</span>':'No'}</span></div>
       <div class="kv"><span class="k">Tolerancia</span><span class="v">0 minutos</span></div>
       <div class="kv"><span class="k">Tipo excepción</span><span class="v">${d.tipo_falta||'—'}</span></div>
+      ${d.motivo_retardo?`<div class="kv"><span class="k">Motivo del retardo</span><span class="v" style="color:#92400E;font-weight:600">${d.motivo_retardo}</span></div>`:''}
     </div>
     ${d.es_retardo?`<div class="modal-section" style="border-color:#FDE68A;background:#FFFBEB">
       <div class="ms-title" style="color:#92400E">⚠️ Impacto disciplinario</div>
