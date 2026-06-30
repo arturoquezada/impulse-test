@@ -2665,34 +2665,17 @@ async function _a_guardarMotivosRetardo(){
   const btn = document.querySelector('.modal-footer .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
 
-  // Buscar si ya existe el punch de entrada para ese día
-  const { data: existentes } = await _a_sb.from('attendance_punches')
-    .select('id')
-    .eq('employee_id', rec.agentId)
-    .eq('punch_date', rec.fecha)
-    .eq('punch_type', 'entrada');
-
-  let error;
-  if (existentes && existentes.length > 0) {
-    // Ya existe el punch — solo actualiza la nota
-    ({ error } = await _a_sb.from('attendance_punches')
-      .update({ notes: motivo })
-      .eq('id', existentes[0].id));
-  } else {
-    // No marcó entrada ese día — crea el punch con la nota (sin hora real,
-    // se marca como "00:00:00" para que quede registrado el motivo en BD)
-    const a = _a_TEAM.find(x=>x.id===rec.agentId);
-    ({ error } = await _a_sb.from('attendance_punches').insert({
-      employee_id: rec.agentId,
-      punch_date:  rec.fecha,
-      punch_time:  '00:00:00',
-      punched_at:  rec.fecha + 'T00:00:00-06:00',
-      punch_type:  'entrada',
-      campaign_id: a?.camp || null,
-      created_by:  ROLES[currentRole].id,
-      notes:       motivo,
-    }));
-  }
+  const a = _a_TEAM.find(x=>x.id===rec.agentId);
+  const { error } = await _a_sb.from('attendance_punches').upsert({
+    employee_id: rec.agentId,
+    punch_date:  rec.fecha,
+    punch_type:  'entrada',
+    punch_time:  '00:00:00',
+    punched_at:  rec.fecha + 'T00:00:00-06:00',
+    campaign_id: a?.camp || null,
+    created_by:  ROLES[currentRole].id,
+    notes:       motivo,
+  }, { onConflict: 'employee_id,punch_date,punch_type' });
 
   if (error) {
     console.error('Error guardando motivo de retardo:', error);
@@ -6031,38 +6014,20 @@ async function _t_resolverTicket(id) {
 // existente de ese empleado/fecha/tipo; si no existe (ej. faltaba la marca
 // por completo), lo crea con INSERT.
 async function _t_aplicarCorreccionAsistencia(t) {
-  const horaCompleta = t.correction_time; // 'HH:MM:SS'
+  const horaCompleta = t.correction_time;
   const punchedAtISO = `${t.target_date}T${horaCompleta}-06:00`;
-
-  const { data: existentes, error: errSel } = await _t_sb.from('attendance_punches')
-    .select('id')
-    .eq('employee_id', t.target_employee_id)
-    .eq('punch_date', t.target_date)
-    .eq('punch_type', t.correction_punch_type);
-  if (errSel) return { error: errSel };
-
-  if (existentes && existentes.length > 0) {
-    const { error } = await _t_sb.from('attendance_punches')
-      .update({
-        punch_time: horaCompleta, punched_at: punchedAtISO,
-        notes: `Corregido vía ticket ${t.id}`,
-      })
-      .eq('id', existentes[0].id);
-    return { error };
-  } else {
-    const { data: emp } = await _t_sb.from('employees').select('campaign_id').eq('id', t.target_employee_id).maybeSingle();
-    const { error } = await _t_sb.from('attendance_punches').insert({
-      employee_id: t.target_employee_id,
-      punch_date: t.target_date,
-      punch_time: horaCompleta,
-      punched_at: punchedAtISO,
-      punch_type: t.correction_punch_type,
-      campaign_id: emp?.campaign_id || null,
-      created_by: ROLES[currentRole].id,
-      notes: `Creado vía ticket ${t.id}`,
-    });
-    return { error };
-  }
+  const { data: emp } = await _t_sb.from('employees').select('campaign_id').eq('id', t.target_employee_id).maybeSingle();
+  const { error } = await _t_sb.from('attendance_punches').upsert({
+    employee_id: t.target_employee_id,
+    punch_date:  t.target_date,
+    punch_type:  t.correction_punch_type,
+    punch_time:  horaCompleta,
+    punched_at:  punchedAtISO,
+    campaign_id: emp?.campaign_id || null,
+    created_by:  ROLES[currentRole].id,
+    notes:       `Corregido vía ticket ${t.id}`,
+  }, { onConflict: 'employee_id,punch_date,punch_type' });
+  return { error };
 }
 
 async function _t_confirmarResolver(id) {
