@@ -2127,23 +2127,15 @@ let _a_CAMP_REAL  = {};  // { campaign_id: {total,onTime,late,absent} }
 let _a_QDAYS_EMPLEADO_ID = null; // de quién son los datos actualmente cargados en _a_QDAYS
 
 async function _a_cargarQDAYS(empId, from, to) {
-  const { data: summary } = await _a_sb
-    .from('attendance_daily_summary')
-    .select('*')
-    .eq('employee_id', empId)
-    .gte('punch_date', from)
-    .lte('punch_date', to)
-    .order('punch_date');
+  const [summaryRes, notesRes, excepRes] = await Promise.all([
+    _a_sb.from('attendance_daily_summary').select('*').eq('employee_id', empId).gte('punch_date', from).lte('punch_date', to).order('punch_date'),
+    _a_sb.from('attendance_punches').select('punch_date, notes').eq('employee_id', empId).eq('punch_type','entrada').gte('punch_date', from).lte('punch_date', to),
+    _a_sb.from('attendance_exceptions').select('exception_date, type, notes, status').eq('employee_id', empId).gte('exception_date', from).lte('exception_date', to),
+  ]);
 
-  // Notas (motivo de retardo) van en attendance_punches.notes del punch de entrada,
-  // no en la vista de resumen — se traen aparte y se cruzan por fecha.
-  const { data: notesData } = await _a_sb
-    .from('attendance_punches')
-    .select('punch_date, notes')
-    .eq('employee_id', empId)
-    .eq('punch_type', 'entrada')
-    .gte('punch_date', from)
-    .lte('punch_date', to);
+  const summary  = summaryRes.data  || [];
+  const notesData = notesRes.data   || [];
+  const excep    = excepRes.data    || [];
 
   const dias = [];
   let cur = new Date(from + 'T12:00:00');
@@ -2154,18 +2146,20 @@ async function _a_cargarQDAYS(empId, from, to) {
     if (dow === 0 || dow === 6) {
       dias.push({ fecha, weekend: true });
     } else {
-      const s = summary?.find(x => x.punch_date === fecha);
-      const n = notesData?.find(x => x.punch_date === fecha);
+      const s = summary.find(x => x.punch_date === fecha);
+      const n = notesData.find(x => x.punch_date === fecha);
+      const ex = excep.find(x => x.exception_date === fecha);
       dias.push({
         fecha,
-        entrada_at:           s?.time_in    ? `${fecha}T${s.time_in}-06:00`   : null,
-        salida_at:            s?.time_out   ? `${fecha}T${s.time_out}-06:00`  : null,
-        segundos_trabajados:  s ? Math.round((s.hours_worked||0) * 3600) : 0,
-        segundos_tarde:       s ? (s.minutes_late||0) * 60 : 0,
-        es_retardo:           s ? (s.minutes_late||0) > 0 : false,
-        estatus:              s?.attendance_status || (s ? 'Normal' : 'Sin registro'),
-        tipo_falta:           s?.exception_type || null,
-        motivo_retardo:       n?.notes || null,
+        entrada_at:          s?.time_in    ? `${fecha}T${s.time_in}-06:00`  : null,
+        salida_at:           s?.time_out   ? `${fecha}T${s.time_out}-06:00` : null,
+        segundos_trabajados: s ? Math.round((s.hours_worked||0) * 3600) : 0,
+        segundos_tarde:      s ? (s.minutes_late||0) * 60 : 0,
+        es_retardo:          s ? (s.minutes_late||0) > 0 : false,
+        estatus:             s?.attendance_status || (s ? 'Normal' : 'Sin registro'),
+        tipo_falta:          ex?.type || s?.exception_type || null,
+        motivo_falta:        ex?.notes || null,
+        motivo_retardo:      n?.notes || null,
       });
     }
     cur.setDate(cur.getDate() + 1);
@@ -4712,6 +4706,7 @@ function _a_openDayModal(idx){
       <div class="kv"><span class="k">Es retardo</span><span class="v">${d.es_retardo?'<span style="color:#DC2626;font-weight:700">Sí</span>':'No'}</span></div>
       <div class="kv"><span class="k">Tolerancia</span><span class="v">0 minutos</span></div>
       <div class="kv"><span class="k">Tipo excepción</span><span class="v">${d.tipo_falta||'—'}</span></div>
+      ${d.motivo_falta?`<div class="kv"><span class="k">Motivo de falta</span><span class="v" style="color:#991B1B;font-weight:600">${d.motivo_falta}</span></div>`:''}
       ${d.motivo_retardo?`<div class="kv"><span class="k">Motivo del retardo</span><span class="v" style="color:#92400E;font-weight:600">${d.motivo_retardo}</span></div>`:''}
     </div>
     ${d.es_retardo?`<div class="modal-section" style="border-color:#FDE68A;background:#FFFBEB">
