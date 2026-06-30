@@ -2665,11 +2665,34 @@ async function _a_guardarMotivosRetardo(){
   const btn = document.querySelector('.modal-footer .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
 
-  const { error } = await _a_sb.from('attendance_punches')
-    .update({ notes: motivo })
+  // Buscar si ya existe el punch de entrada para ese día
+  const { data: existentes } = await _a_sb.from('attendance_punches')
+    .select('id')
     .eq('employee_id', rec.agentId)
     .eq('punch_date', rec.fecha)
     .eq('punch_type', 'entrada');
+
+  let error;
+  if (existentes && existentes.length > 0) {
+    // Ya existe el punch — solo actualiza la nota
+    ({ error } = await _a_sb.from('attendance_punches')
+      .update({ notes: motivo })
+      .eq('id', existentes[0].id));
+  } else {
+    // No marcó entrada ese día — crea el punch con la nota (sin hora real,
+    // se marca como "00:00:00" para que quede registrado el motivo en BD)
+    const a = _a_TEAM.find(x=>x.id===rec.agentId);
+    ({ error } = await _a_sb.from('attendance_punches').insert({
+      employee_id: rec.agentId,
+      punch_date:  rec.fecha,
+      punch_time:  '00:00:00',
+      punched_at:  rec.fecha + 'T00:00:00-06:00',
+      punch_type:  'entrada',
+      campaign_id: a?.camp || null,
+      created_by:  ROLES[currentRole].id,
+      notes:       motivo,
+    }));
+  }
 
   if (error) {
     console.error('Error guardando motivo de retardo:', error);
@@ -2682,9 +2705,7 @@ async function _a_guardarMotivosRetardo(){
   rec.marcadoPor = 'supervisor';
   rec.pendiente  = false;
 
-  // Refrescar el día desde Supabase para que "Detalle por día" muestre el motivo
   await _a_cargarQDAYS(rec.agentId, _a_dateFilter.from, _a_dateFilter.to);
-
   closeModal();
   _a_render();
 }
