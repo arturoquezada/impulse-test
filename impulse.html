@@ -2124,6 +2124,8 @@ let _a_CAMP_REAL  = {};  // { campaign_id: {total,onTime,late,absent} }
 // Carga _a_QDAYS para un rango arbitrario de fechas (lo usa la carga inicial
 // y también los presets/nav del filtro de fechas, para que el rango mostrado
 // siempre tenga datos reales detrás, no solo los últimos 15 días fijos).
+let _a_QDAYS_EMPLEADO_ID = null; // de quién son los datos actualmente cargados en _a_QDAYS
+
 async function _a_cargarQDAYS(empId, from, to) {
   const { data: summary } = await _a_sb
     .from('attendance_daily_summary')
@@ -2169,6 +2171,7 @@ async function _a_cargarQDAYS(empId, from, to) {
     cur.setDate(cur.getDate() + 1);
   }
   _a_QDAYS = dias;
+  _a_QDAYS_EMPLEADO_ID = empId;
 }
 
 async function _a_cargarDatos() {
@@ -4717,7 +4720,98 @@ function _a_openDayModal(idx){
       <div class="kv"><span class="k">Retardos en ventana</span><span class="v" style="color:#DC2626">1 → Verbal</span></div>
       <div class="kv"><span class="k">Siguiente nivel</span><span class="v">2 retardos → 1ª escrita</span></div>
     </div>`:''}`;
+
+  const puedeCorregir = ['supervisor','manager'].includes(currentRole);
+  if (puedeCorregir) {
+    document.getElementById('modalFooter').innerHTML = `
+      <button class="btn-ghost" onclick="closeModal()">Cerrar</button>
+      <button class="btn-primary" style="background:#FFFBEB;color:#92400E;border:1px solid #FDE68A" onclick="_a_abrirSolicitudCorreccion('${d.fecha}')">🚩 Solicitar corrección</button>`;
+  } else {
+    document.getElementById('modalFooter').innerHTML = '<button class="btn-ghost" onclick="closeModal()">Cerrar</button>';
+  }
   document.getElementById('modalBackdrop').style.display='flex';
+}
+
+// Abre el mini-formulario de corrección, pre-llenando empleado/fecha/marca
+// según el problema visible en el día (sin que el supervisor tenga que
+// adivinar ni escribir nada de eso a mano).
+function _a_abrirSolicitudCorreccion(fecha){
+  const empId = _a_QDAYS_EMPLEADO_ID;
+  const d = _a_QDAYS.find(x => x.fecha === fecha);
+  if (!empId || !d) return;
+
+  let marcaDefault = 'entrada';
+  if (!d.entrada_at) marcaDefault = 'entrada';
+  else if (!d.salida_at) marcaDefault = 'salida';
+  else if (d.es_retardo) marcaDefault = 'entrada';
+
+  const empNombre = (_a_TEAM.find(x=>x.id===empId)||{}).name
+    || (_a_SUPS_REAL.find(x=>x.id===empId)||{}).name
+    || ROLES[currentRole].name;
+
+  document.getElementById('modalTitle').textContent = 'Solicitar corrección de asistencia';
+  document.getElementById('modalSub').textContent = `${empNombre} · ${fmtDate(fecha)}`;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-section" style="background:#F8FAFC">
+      <div class="kv"><span class="k">Empleado</span><span class="v">${empNombre}</span></div>
+      <div class="kv"><span class="k">Fecha</span><span class="v">${fmtDate(fecha)}</span></div>
+      <div class="kv"><span class="k">Entrada actual</span><span class="v" style="font-family:'DM Mono',monospace">${_a_fmtTime(d.entrada_at)}</span></div>
+      <div class="kv"><span class="k">Salida actual</span><span class="v" style="font-family:'DM Mono',monospace">${_a_fmtTime(d.salida_at)}</span></div>
+    </div>
+    <div class="modal-section">
+      <div class="ms-title">Marca a corregir</div>
+      <select id="corr-punch-tipo" style="width:100%;border:1px solid #E2E8F0;border-radius:8px;padding:9px 11px;font-size:13px;font-family:'DM Sans',sans-serif">
+        <option value="entrada" ${marcaDefault==='entrada'?'selected':''}>Entrada</option>
+        <option value="salida" ${marcaDefault==='salida'?'selected':''}>Salida</option>
+      </select>
+    </div>
+    <div class="modal-section">
+      <div class="ms-title">Hora correcta <span style="color:#EF4444">*</span></div>
+      <input type="time" id="corr-hora" style="width:100%;border:1px solid #E2E8F0;border-radius:8px;padding:9px 11px;font-size:13px;font-family:'DM Sans',sans-serif"/>
+    </div>
+    <div class="modal-section">
+      <div class="ms-title">Motivo <span style="color:#94A3B8">(opcional)</span></div>
+      <textarea id="corr-motivo" placeholder="Ej: Se le olvidó marcar, el supervisor confirma que llegó a tiempo…"
+        style="width:100%;border:1px solid #E2E8F0;border-radius:8px;padding:9px 11px;font-size:13px;font-family:'DM Sans',sans-serif;resize:vertical;min-height:64px"></textarea>
+    </div>`;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn-ghost" onclick="_a_openDayModal(_a_QDAYS.filter(x=>!x.weekend).findIndex(x=>x.fecha==='${fecha}'))">← Volver</button>
+    <button class="btn-primary" id="btnEnviarCorreccion" onclick="_a_enviarSolicitudCorreccion('${empId}','${fecha}')">Enviar solicitud</button>`;
+}
+
+async function _a_enviarSolicitudCorreccion(empId, fecha){
+  const punchTipo = document.getElementById('corr-punch-tipo')?.value;
+  const hora = document.getElementById('corr-hora')?.value;
+  const motivo = document.getElementById('corr-motivo')?.value?.trim();
+  if (!hora) { alert('Indica la hora correcta'); return; }
+
+  const btn = document.getElementById('btnEnviarCorreccion');
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+
+  const ro = ROLES[currentRole];
+  const id = 'TKT-' + Date.now();
+  const subtipoMap = {entrada:'Entrada mal marcada', salida:'Salida mal marcada'};
+  const { error } = await _a_sb.from('hr_tickets').insert({
+    id, employee_id: ro.id, type: 'correccion_asistencia',
+    subtype: subtipoMap[punchTipo] || 'Corrección',
+    description: motivo || `Solicitud de corrección de ${punchTipo} para ${fecha}`,
+    priority: 'normal', sla_hours: 48,
+    due_at: new Date(Date.now() + 48*3600000).toISOString(),
+    target_employee_id: empId,
+    target_date: fecha,
+    correction_punch_type: punchTipo,
+    correction_time: hora + ':00',
+  });
+
+  if (error) {
+    console.error('Error creando ticket de corrección:', error);
+    alert('No se pudo enviar la solicitud. Intenta de nuevo.\n\n' + error.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Enviar solicitud'; }
+    return;
+  }
+
+  closeModal();
+  alert('✅ Solicitud enviada a People. Te avisarán cuando esté corregida.');
 }
 
 
@@ -5677,6 +5771,7 @@ const _t_sb = supabase.createClient(_t_SB_URL, _t_SB_KEY);
 
 let _t_TICKETS = [];
 let _t_EMPLEADOS = [];
+let _t_EMPLEADOS_FULL = [];
 let _t_cargando = false;
 let _t_vistaTickets = 'mis';
 let _t_detalleId = null;
@@ -5689,8 +5784,9 @@ async function _t_cargarTickets() {
     const { data, error } = await query;
     if (error) throw error;
     _t_TICKETS = data || [];
-    const { data: emps } = await _t_sb.from('employees').select('id,full_name');
+    const { data: emps } = await _t_sb.from('employees').select('id,full_name,supervisor_id,status').eq('status','active');
     _t_EMPLEADOS = emps || [];
+    _t_EMPLEADOS_FULL = emps || [];
     return true;
   } catch(e) { console.error('Error tickets:', e); return false; }
 }
@@ -5772,9 +5868,18 @@ function _t_renderDetalle(id) {
       </div>
       <div style="margin-bottom:16px"><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Descripción</div>
       <div style="font-size:13px;color:#334155;line-height:1.6">${t.description||'—'}</div></div>
+      ${t.type==='correccion_asistencia'?`<div style="margin-bottom:16px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:14px">
+        <div style="font-size:11px;font-weight:700;color:#92400E;margin-bottom:10px">🚩 Detalle de la corrección</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+          <div><span style="color:#92400E">Empleado:</span> ${_t_nombreEmpleado(t.target_employee_id)}</div>
+          <div><span style="color:#92400E">Fecha:</span> ${t.target_date||'—'}</div>
+          <div><span style="color:#92400E">Marca:</span> <span style="text-transform:capitalize">${t.correction_punch_type||'—'}</span></div>
+          <div><span style="color:#92400E">Hora nueva:</span> <strong style="font-family:'DM Mono',monospace">${(t.correction_time||'').slice(0,5)}</strong></div>
+        </div>
+      </div>`:''}
       ${t.resolution_notes?`<div><div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Respuesta de People</div><div style="font-size:13px;color:#334155">${t.resolution_notes}</div></div>`:''}
       ${isSup && !['resolved','cancelled'].includes(t.status)?`<div style="margin-top:16px;display:flex;gap:8px">
-        <button onclick="_t_resolverTicket('${t.id}')" style="padding:8px 16px;background:#DCFCE7;color:#16A34A;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✅ Marcar como completado</button>
+        <button onclick="_t_resolverTicket('${t.id}')" style="padding:8px 16px;background:#DCFCE7;color:#16A34A;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">${t.type==='correccion_asistencia'?'✅ Aplicar y completar':'✅ Marcar como completado'}</button>
       </div>`:''}
     </div>
   </div>`;
@@ -5784,10 +5889,26 @@ const _T_CATEGORIAS = {
   'Verificación de Empleo': ['Carta de Recomendación','Carta Patronal','Carta de referencia','Carta de antigüedad'],
   'Nomina': ['Cambio de cuenta','Recibos de Nomina','Problemas en la Nomina'],
   'Rendimiento y Gestion de Personal': ['Cambio de jerarquia','Cambio de campaña','Cambio de horario','Promoción','Dar de Baja','Solicitud de PIP','Solicitud de Acta'],
+  'Corrección de Asistencia': ['Entrada mal marcada','Salida mal marcada','Entrada faltante','Salida faltante','Retardo mal marcado'],
   'Queja o Sugerencia': ['Queja','Sugerencia'],
   'Denuncia': ['Anonimo','Dar tu nombre'],
   'Otros': ['Otros'],
 };
+
+// Categorías visibles solo para ciertos roles (todas las demás son para cualquiera)
+const _T_CATEGORIA_ROLES = {
+  'Corrección de Asistencia': ['supervisor','manager'],
+};
+// "Corrección de Asistencia" se crea SOLO desde el botón dentro de Asistencia
+// (ya trae empleado/fecha/marca correctos automáticamente) — no aparece en
+// el formulario manual de "Nuevo Ticket" para evitar 2 caminos inconsistentes.
+function _t_categoriasVisibles() {
+  return Object.keys(_T_CATEGORIAS).filter(cat => {
+    if (cat === 'Corrección de Asistencia') return false;
+    const roles = _T_CATEGORIA_ROLES[cat];
+    return !roles || roles.includes(currentRole);
+  });
+}
 
 // La base solo acepta estos slugs exactos en hr_tickets.type (CHECK constraint
 // valid_ticket_type) — el dropdown muestra el texto bonito, pero se manda el slug.
@@ -5795,12 +5916,23 @@ const _T_CATEGORIA_SLUG = {
   'Verificación de Empleo': 'verificacion_empleo',
   'Nomina': 'nomina',
   'Rendimiento y Gestion de Personal': 'rendimiento_personal',
+  'Corrección de Asistencia': 'correccion_asistencia',
   'Queja o Sugerencia': 'queja_sugerencia',
   'Denuncia': 'denuncia',
   'Otros': 'otros',
 };
 const _T_SLUG_CATEGORIA = Object.fromEntries(Object.entries(_T_CATEGORIA_SLUG).map(([k,v])=>[v,k]));
 function _t_categoriaLabel(slug) { return _T_SLUG_CATEGORIA[slug] || slug; }
+
+// Empleados que el rol actual puede pedir corregir: supervisor solo su equipo,
+// manager/people/head_people toda la empresa.
+function _t_empleadosCorregibles() {
+  const ro = ROLES[currentRole];
+  if (currentRole === 'supervisor') {
+    return _t_EMPLEADOS_FULL.filter(e => e.supervisor_id === ro.id);
+  }
+  return _t_EMPLEADOS_FULL;
+}
 
 function _t_actualizarSubtipos() {
   const cat = document.getElementById('nt-categoria')?.value;
@@ -5812,12 +5944,13 @@ function _t_actualizarSubtipos() {
 function _t_abrirNuevo() {
   document.getElementById('modalTitle').textContent = 'Nuevo Ticket HR';
   document.getElementById('modalSub').textContent = '';
-  const primeraCategoria = Object.keys(_T_CATEGORIAS)[0];
+  const cats = _t_categoriasVisibles();
+  const primeraCategoria = cats[0];
   document.getElementById('modalBody').innerHTML = `
     <div class="modal-section">
       <label class="modal-label">CATEGORÍA</label>
       <select id="nt-categoria" onchange="_t_actualizarSubtipos()" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)">
-        ${Object.keys(_T_CATEGORIAS).map(c=>`<option value="${c}">${c}</option>`).join('')}
+        ${cats.map(c=>`<option value="${c}">${c}</option>`).join('')}
       </select>
     </div>
     <div class="modal-section">
@@ -5856,21 +5989,78 @@ async function _t_crearTicket() {
 }
 
 async function _t_resolverTicket(id) {
-  document.getElementById('modalTitle').textContent = 'Completar ticket';
+  const t = _t_TICKETS.find(x => x.id === id);
+  const esCorreccion = t?.type === 'correccion_asistencia';
+  document.getElementById('modalTitle').textContent = esCorreccion ? 'Aplicar corrección de asistencia' : 'Completar ticket';
   document.getElementById('modalSub').textContent = '';
   document.getElementById('modalBody').innerHTML = `
+    ${esCorreccion ? `<div class="modal-section" style="background:#FFFBEB;border-color:#FDE68A">
+      <div class="ms-title" style="color:#92400E">🚩 Se va a corregir automáticamente</div>
+      <div class="kv"><span class="k">Empleado</span><span class="v">${_t_nombreEmpleado(t.target_employee_id)}</span></div>
+      <div class="kv"><span class="k">Fecha</span><span class="v">${t.target_date||'—'}</span></div>
+      <div class="kv"><span class="k">Marca</span><span class="v" style="text-transform:capitalize">${t.correction_punch_type||'—'}</span></div>
+      <div class="kv"><span class="k">Hora nueva</span><span class="v" style="font-family:'DM Mono',monospace;font-weight:700">${(t.correction_time||'').slice(0,5)}</span></div>
+    </div>` : ''}
     <div class="modal-section">
       <label class="modal-label">RESPUESTA DE PEOPLE</label>
       <textarea id="tr-notas" rows="3" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;font-family:var(--f)" placeholder="Escribe la respuesta o resolución para el empleado..."></textarea>
     </div>`;
   document.getElementById('modalFooter').innerHTML = `
     <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
-    <button class="btn-primary" onclick="_t_confirmarResolver('${id}')">Marcar como completado</button>`;
+    <button class="btn-primary" onclick="_t_confirmarResolver('${id}')">${esCorreccion ? '✅ Aplicar y completar' : 'Marcar como completado'}</button>`;
   document.getElementById('modalBackdrop').style.display = 'flex';
+}
+
+// Aplica la corrección real en attendance_punches: intenta UPDATE el punch
+// existente de ese empleado/fecha/tipo; si no existe (ej. faltaba la marca
+// por completo), lo crea con INSERT.
+async function _t_aplicarCorreccionAsistencia(t) {
+  const horaCompleta = t.correction_time; // 'HH:MM:SS'
+  const punchedAtISO = `${t.target_date}T${horaCompleta}-06:00`;
+
+  const { data: existentes, error: errSel } = await _t_sb.from('attendance_punches')
+    .select('id')
+    .eq('employee_id', t.target_employee_id)
+    .eq('punch_date', t.target_date)
+    .eq('punch_type', t.correction_punch_type);
+  if (errSel) return { error: errSel };
+
+  if (existentes && existentes.length > 0) {
+    const { error } = await _t_sb.from('attendance_punches')
+      .update({
+        punch_time: horaCompleta, punched_at: punchedAtISO,
+        notes: `Corregido vía ticket ${t.id}`,
+      })
+      .eq('id', existentes[0].id);
+    return { error };
+  } else {
+    const { data: emp } = await _t_sb.from('employees').select('campaign_id').eq('id', t.target_employee_id).maybeSingle();
+    const { error } = await _t_sb.from('attendance_punches').insert({
+      employee_id: t.target_employee_id,
+      punch_date: t.target_date,
+      punch_time: horaCompleta,
+      punched_at: punchedAtISO,
+      punch_type: t.correction_punch_type,
+      campaign_id: emp?.campaign_id || null,
+      created_by: ROLES[currentRole].id,
+      notes: `Creado vía ticket ${t.id}`,
+    });
+    return { error };
+  }
 }
 
 async function _t_confirmarResolver(id) {
   const notas = document.getElementById('tr-notas')?.value || '';
+  const t = _t_TICKETS.find(x => x.id === id);
+
+  if (t?.type === 'correccion_asistencia') {
+    const { error: errCorr } = await _t_aplicarCorreccionAsistencia(t);
+    if (errCorr) {
+      alert('No se pudo aplicar la corrección en Asistencia. El ticket NO se marcó como completado.\n\n' + errCorr.message);
+      return;
+    }
+  }
+
   const { error } = await _t_sb.from('hr_tickets').update({
     status: 'resolved', resolution_notes: notas,
     resolved_at: new Date().toISOString(),
