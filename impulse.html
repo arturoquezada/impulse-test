@@ -2222,9 +2222,11 @@ async function _a_cargarDatos() {
         let status = 'sin_punch';
         if (s) {
           if (s.attendance_status === 'Falta injustificada' || s.exception_type === 'falta') status = 'falta';
+          else if (s.attendance_status === 'absent' || s.attendance_status === 'no_show') status = 'sin_punch';
           else if (lateMin > 0) status = 'late';
           else status = 'on_time';
         }
+        console.log(`[TEAM] ${e.id} ${e.full_name} → status=${status} attendance_status=${s?.attendance_status} exception_type=${s?.exception_type}`);
         return {
           id:         e.id,
           name:       e.full_name,
@@ -2933,7 +2935,8 @@ async function _a_guardarFalta(){
     agentId: a.id, agentName: a.name,
     fecha: hoy, categoria: cat,
     motivo, marcadaPor:'supervisor',
-    supId:'CX00501', hora: a.falta.hora,
+    supId: ROLES[currentRole].id,
+    hora: a.falta.hora,
     estado: estadoDisplay,
   });
 
