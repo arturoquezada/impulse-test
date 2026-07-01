@@ -2253,12 +2253,13 @@ async function _a_cargarDatos() {
         const lateMin = s ? (s.minutes_late || 0) : 0;
         let status = 'sin_punch';
         if (s) {
-          if (s.attendance_status === 'absent' || s.attendance_status === 'excused_absence' || s.exception_type === 'falta') status = 'falta';
-          else if (s.attendance_status === 'absent' || s.attendance_status === 'no_show') status = 'sin_punch';
-          else if ((s.minutes_late||0) > 0 || s.attendance_status === 'late') status = 'late';
-          else status = 'on_time';
+          const ast = s.attendance_status;
+          if (ast === 'absent' || ast === 'excused_absence') status = 'falta';
+          else if (ast === 'missing_checkout') status = 'on_time'; // marcó entrada, falta salida — no es falta
+          else if (ast === 'no_show') status = 'sin_punch'; // llegó > 1h tarde, sin salida
+          else if (ast === 'late' || lateMin > 0) status = 'late';
+          else if (ast === 'on_time' || s.time_in) status = 'on_time';
         }
-        console.log(`[TEAM] ${e.id} ${e.full_name} → status=${status} attendance_status=${s?.attendance_status} exception_type=${s?.exception_type}`);
         return {
           id:         e.id,
           name:       e.full_name,
@@ -4711,11 +4712,13 @@ function _a_renderSupDetail(supId){
   const absent = myTeam.filter(a=>a.status==='falta').length;
   let rows = '';
   myTeam.forEach(a=>{
-    rows+=`<tr>
+    const lateMin = a.lateMin || 0;
+    rows+=`<tr onclick="_a_drillToAgent('${a.id}')">
       <td><div class="agent-row-name">${a.name}</div><div class="agent-row-id">${a.id}</div></td>
       <td style="font-family:var(--fm);font-size:12px">${a.entrada||'—'}</td>
       <td style="font-family:var(--fm);font-size:12px">${a.salida||'—'}</td>
-      <td style="font-family:var(--fm);font-size:12px;color:${a.lateMin>0?'#B45309':'#94A3B8'}">${a.lateMin>0?a.lateMin+' min':'—'}</td>
+      <td style="font-family:var(--fm);font-size:12px;color:${lateMin>0?'#B45309':'#94A3B8'}">${lateMin>0?lateMin+' min':'—'}</td>
+      <td style="font-family:var(--fm);font-size:12px;color:#6366F1">${a.worked?_a_secsHHMM(a.worked):'—'}</td>
       <td>${_a_agentBadge(a.status,a.falta)}</td>
     </tr>`;
   });
@@ -4734,8 +4737,8 @@ function _a_renderSupDetail(supId){
   <div class="card">
     <div class="card-title">Equipo de ${supName} · ${myTeam.length} agentes</div>
     ${myTeam.length===0?'<div style="text-align:center;padding:30px;color:#94A3B8">Sin agentes cargados — los datos de asistencia del equipo se cargan cuando hay punches del día</div>':''}
-    <div class="tbl-wrap"><div style="overflow-x:auto"><table style="min-width:500px">
-      <thead><tr><th>Agente</th><th>Entrada</th><th>Salida</th><th>Min tarde</th><th>Status</th></tr></thead>
+    <div class="tbl-wrap"><div style="overflow-x:auto"><table style="min-width:600px">
+      <thead><tr><th>Agente</th><th>Entrada</th><th>Salida</th><th>Min tarde</th><th>Trabajado</th><th>Status</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div></div>
   </div>`;
