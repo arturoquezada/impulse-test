@@ -3930,6 +3930,7 @@ function _a_renderCEO(){
         <td style="font-family:'DM Mono',monospace;font-size:12px">${a.entrada||'—'}</td>
         <td style="font-family:'DM Mono',monospace;font-size:12px">${a.salida||'—'}</td>
         <td style="font-family:'DM Mono',monospace;font-size:12px;color:${a.lateMin>0?'#B45309':'#94A3B8'}">${a.lateMin>0?a.lateMin+' min':'—'}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:12px;color:#6366F1">${a.worked?_a_secsHHMM(a.worked):'—'}</td>
         <td>${_a_agentBadge(a.status,a.falta)}</td>
         <td style="font-family:'DM Mono',monospace;font-size:11px;color:#DC2626">${a.retardos30}R · ${a.faltas30}F</td>
       </tr>`;
@@ -3945,12 +3946,12 @@ function _a_renderCEO(){
       <div class="kpi-box"><div class="kpi-val" style="color:#16A34A">${onTime}</div><div class="kpi-lbl">A tiempo</div></div>
       <div class="kpi-box"><div class="kpi-val" style="color:#D97706">${late}</div><div class="kpi-lbl">Retardos</div></div>
       <div class="kpi-box"><div class="kpi-val" style="color:#DC2626">${absent}</div><div class="kpi-lbl">Faltas</div></div>
-      <div class="kpi-box"><div class="kpi-val" style="color:#6366F1">${sup.avgQA}%</div><div class="kpi-lbl">QA prom.</div></div>
+      <div class="kpi-box"><div class="kpi-val">${sup.agents}</div><div class="kpi-lbl">Agentes</div></div>
     </div>
     <div class="card">
       <div class="card-title">Equipo de ${sup.name} · ${_a_TEAM.length} agentes</div>
-      <div class="tbl-wrap"><div style="overflow-x:auto"><table style="min-width:560px">
-        <thead><tr><th>Agente</th><th>Entrada</th><th>Salida</th><th>Min tarde</th><th>Status</th><th>30 días</th></tr></thead>
+      <div class="tbl-wrap"><div style="overflow-x:auto"><table style="min-width:620px">
+        <thead><tr><th>Agente</th><th>Entrada</th><th>Salida</th><th>Min tarde</th><th>Trabajado</th><th>Status</th><th>30 días</th></tr></thead>
         <tbody>${agRows}</tbody>
       </table></div></div>
       <div style="margin-top:8px;font-size:11px;color:#94A3B8">Click en un agente para ver su quincena</div>
@@ -4380,7 +4381,6 @@ function _a_renderHeadPeople(){
         </div>
       </td>
       <td style="font-family:'DM Mono',monospace;color:${efic>=95?'#16A34A':efic>=85?'#D97706':'#DC2626'}">${efic}%</td>
-      <td style="font-family:'DM Mono',monospace;color:#6366F1">${s.avgQA}%</td>
       <td style="font-family:'DM Mono',monospace;font-size:11px;color:#DC2626">${s.retardos30}</td>
       <td style="font-family:'DM Mono',monospace;font-size:11px;color:#DC2626">${s.faltas30}</td>
     </tr>`;
@@ -4641,7 +4641,7 @@ function _a_renderHeadPeople(){
     <div class="card-title">Vista completa por supervisor · todas las campañas</div>
     <div class="tbl-wrap">
       <div style="overflow-x:auto"><table style="min-width:820px">
-        <thead><tr><th>Supervisor</th><th>Campaña</th><th>Agentes</th><th>A tiempo</th><th>Retardos</th><th>Faltas</th><th>Puntualidad</th><th>Efic. horas</th><th>QA prom.</th><th>Ret. 30d</th><th>Fal. 30d</th></tr></thead>
+        <thead><tr><th>Supervisor</th><th>Campaña</th><th>Agentes</th><th>A tiempo</th><th>Retardos</th><th>Faltas</th><th>Puntualidad</th><th>Efic. horas</th><th>Ret. 30d</th><th>Fal. 30d</th></tr></thead>
         <tbody id="supBody">${supRows}</tbody>
       </table></div>
     </div>
