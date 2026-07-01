@@ -2221,9 +2221,9 @@ async function _a_cargarDatos() {
         const lateMin = s ? (s.minutes_late || 0) : 0;
         let status = 'sin_punch';
         if (s) {
-          if (s.attendance_status === 'Falta injustificada' || s.exception_type === 'falta') status = 'falta';
+          if (s.attendance_status === 'absent' || s.attendance_status === 'excused_absence' || s.exception_type === 'falta') status = 'falta';
           else if (s.attendance_status === 'absent' || s.attendance_status === 'no_show') status = 'sin_punch';
-          else if (lateMin > 0) status = 'late';
+          else if ((s.minutes_late||0) > 0 || s.attendance_status === 'late') status = 'late';
           else status = 'on_time';
         }
         console.log(`[TEAM] ${e.id} ${e.full_name} → status=${status} attendance_status=${s?.attendance_status} exception_type=${s?.exception_type}`);
@@ -2287,9 +2287,9 @@ async function _a_cargarDatos() {
       }
 
       // KPIs globales
-      const onTime  = todayAll.filter(s => (s.minutes_late||0) === 0 && s.time_in).length;
-      const late    = todayAll.filter(s => (s.minutes_late||0) > 0).length;
-      const absent  = todayAll.filter(s => s.attendance_status === 'Falta injustificada').length;
+      const onTime  = todayAll.filter(s => s.attendance_status === 'on_time' || (s.time_in && (s.minutes_late||0) === 0)).length;
+      const late    = todayAll.filter(s => s.attendance_status === 'late' || s.attendance_status === 'no_show' || (s.minutes_late||0) > 0).length;
+      const absent  = todayAll.filter(s => s.attendance_status === 'absent' || s.attendance_status === 'excused_absence').length;
       const noOut   = todayAll.filter(s => s.time_in && !s.time_out).length;
       _a_KPI_GLOBAL = { total, onTime, late, absent, noOut };
 
@@ -2301,8 +2301,8 @@ async function _a_cargarDatos() {
         _a_CAMP_REAL[camp].total++;
         const s = todayAll.find(x => x.employee_id === e.id);
         if (s) {
-          if ((s.minutes_late||0) > 0) _a_CAMP_REAL[camp].late++;
-          else if (s.attendance_status === 'Falta injustificada') _a_CAMP_REAL[camp].absent++;
+          if (s.attendance_status === 'absent' || s.attendance_status === 'excused_absence') _a_CAMP_REAL[camp].absent++;
+          else if ((s.minutes_late||0) > 0 || s.attendance_status === 'late' || s.attendance_status === 'no_show') _a_CAMP_REAL[camp].late++;
           else if (s.time_in) _a_CAMP_REAL[camp].onTime++;
         }
       });
@@ -2335,9 +2335,9 @@ async function _a_cargarDatos() {
           shift: e.shift_start ? e.shift_start.slice(0,5) : '—',
           shiftEnd: e.shift_end ? e.shift_end.slice(0,5) : '—',
           agents: myTeam.length,
-          onTime: teamToday.filter(s=>(s.minutes_late||0)===0&&s.time_in).length,
-          late:   teamToday.filter(s=>(s.minutes_late||0)>0).length,
-          absent: teamToday.filter(s=>s.attendance_status==='Falta injustificada').length,
+          onTime: teamToday.filter(s=>s.attendance_status==='on_time'||(s.time_in&&(s.minutes_late||0)===0)).length,
+          late:   teamToday.filter(s=>(s.minutes_late||0)>0||s.attendance_status==='late'||s.attendance_status==='no_show').length,
+          absent: teamToday.filter(s=>s.attendance_status==='absent'||s.attendance_status==='excused_absence').length,
           status, lateMin,
           entrada: s?.time_in?.slice(0,5) || null,
           salida:  s?.time_out?.slice(0,5) || null,
