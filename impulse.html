@@ -1926,6 +1926,7 @@ function closeModal(e){
 }
 function updateSidebarUser(){const ro=ROLES[currentRole];document.getElementById('sbAv').textContent=ro.av;document.getElementById('sbName').textContent=ro.name;document.getElementById('sbRole').textContent=ro.label;}
 function switchModule(mod){
+  if(mod !== 'asistencia' && typeof _a_stopLiveFeed === 'function') _a_stopLiveFeed();
   activeModule=mod;
   document.querySelectorAll('.sb-item').forEach(el=>el.classList.toggle('active',el.dataset.mod===mod));
   document.getElementById('tbIcon').textContent=MODULE_INFO[mod].icon;
@@ -2124,7 +2125,38 @@ let _a_CAMP_REAL  = {};  // { campaign_id: {total,onTime,late,absent} }
 // Carga _a_QDAYS para un rango arbitrario de fechas (lo usa la carga inicial
 // y también los presets/nav del filtro de fechas, para que el rango mostrado
 // siempre tenga datos reales detrás, no solo los últimos 15 días fijos).
-let _a_QDAYS_EMPLEADO_ID = null; // de quién son los datos actualmente cargados en _a_QDAYS
+let _a_PUNCHES_HOY  = [];  // últimas marcas del día para el feed en vivo
+let _a_TEAM_ALL     = [];  // todos los empleados (para resolver nombres en el feed)
+let _a_liveFeedTimer = null;
+
+async function _a_refreshFeed() {
+  const hoy = ymd(NOW);
+  const { data } = await _a_sb
+    .from('attendance_punches')
+    .select('employee_id, punch_time, punch_type')
+    .eq('punch_date', hoy)
+    .order('punch_time', { ascending: false })
+    .limit(15);
+  if (!data) return;
+  _a_PUNCHES_HOY = data;
+  const list = document.getElementById('live-feed-list');
+  if (!list) return;
+  list.innerHTML = (_a_PUNCHES_HOY).map(p=>{
+    const emp = (_a_TEAM_ALL||[]).find(e=>e.id===p.employee_id)||{full_name:p.employee_id,campaign_id:'—'};
+    const hora = (p.punch_time||'').slice(0,5);
+    const tipo = p.punch_type==='entrada';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:#F8FAFC;font-size:12px">
+      <span style="font-size:14px">${tipo?'🟢':'🔴'}</span>
+      <span style="font-weight:600;color:#0F172A;flex:1">${emp.full_name}</span>
+      <span style="color:#64748B">${emp.campaign_id||'—'}</span>
+      <span style="font-family:'DM Mono',monospace;font-weight:700;color:${tipo?'#16A34A':'#64748B'}">${hora}</span>
+      <span style="font-size:10px;color:#94A3B8;text-transform:uppercase">${tipo?'entrada':'salida'}</span>
+    </div>`;
+  }).join('')||'<div style="text-align:center;padding:24px;color:#94A3B8;font-size:13px">Sin actividad hoy todavía</div>';
+}
+
+function _a_startLiveFeed(){ if(_a_liveFeedTimer)clearInterval(_a_liveFeedTimer); _a_liveFeedTimer=setInterval(_a_refreshFeed,30000); }
+function _a_stopLiveFeed(){ if(_a_liveFeedTimer){clearInterval(_a_liveFeedTimer);_a_liveFeedTimer=null;} }
 
 async function _a_cargarQDAYS(empId, from, to) {
   const [summaryRes, notesRes, excepRes] = await Promise.all([
@@ -2265,6 +2297,17 @@ async function _a_cargarDatos() {
 
       const allIds = (allEmps||[]).map(e=>e.id);
       const total = allIds.length;
+      _a_TEAM_ALL = allEmps || [];
+
+      // Punches de hoy para el feed en vivo (últimas 15 marcas, ordenadas)
+      const { data: punchesHoy } = await _a_sb
+        .from('attendance_punches')
+        .select('employee_id, punch_time, punch_type, punch_date')
+        .eq('punch_date', hoy)
+        .order('punch_time', { ascending: false })
+        .limit(15);
+      _a_PUNCHES_HOY = punchesHoy || [];
+
       // Campañas únicas de los empleados
       _a_CAMPS_REAL = [...new Set((allEmps||[])
         .map(e=>e.campaign_id)
@@ -4477,53 +4520,108 @@ function _a_renderHeadPeople(){
     </div>
   </div>
 
-  <!-- Top 10 riesgo de baja -->
+
+  <!-- C: Panorama por campaña -->
   <div class="card">
-    <div class="card-title">👁️ Atención del supervisor · todas las campañas</div>
-    <div style="font-size:12px;color:#64748B;margin-bottom:14px">
-      % de faltas que el supervisor marcó antes de las 3h. Un score bajo significa que no está al pendiente de su equipo — el sistema tuvo que marcarlas.
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <div class="card-title" style="margin-bottom:2px">📊 Puntualidad por campaña · hoy</div>
+        <div style="font-size:11px;color:#94A3B8">% de agentes que llegaron a tiempo</div>
+      </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
-      ${_a_filtrarSups(_a_SUPS_REAL.length>0?_a_SUPS_REAL:_a_SUP_ATENCION).slice(0,4).map(s=>{
-        const sc=s.atencionScore;
-        const color=sc>=70?'#16A34A':sc>=40?'#D97706':'#7E22CE';
-        return`<div class="kpi-box" style="text-align:center;cursor:pointer" onclick="_a_drillToSup('${s.id}')">
-          <div style="font-size:20px;font-weight:800;color:${color}">${sc}%</div>
-          <div style="font-size:11px;font-weight:700;color:#334155;margin-top:2px">${s.name}</div>
-          <div style="font-size:10px;color:#94A3B8">${s.camp} · ${s.faltasPorSup}👤 ${s.faltasPorSistema}🤖</div>
-          <div class="atencion-bar" style="margin-top:6px"><div class="atencion-bar-f" style="width:${sc}%;background:${color}"></div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">
+      ${Object.entries(_a_CAMP_REAL).filter(([c])=>c!=='admin'&&c!=='liderazgo').map(([camp, d])=>{
+        const pct = d.total ? Math.round((d.onTime/d.total)*100) : 0;
+        const color = pct>=90?'#16A34A':pct>=70?'#D97706':'#DC2626';
+        const bg = pct>=90?'#F0FDF4':pct>=70?'#FFFBEB':'#FEF2F2';
+        const border = pct>=90?'#BBF7D0':pct>=70?'#FDE68A':'#FECACA';
+        return `<div style="background:${bg};border:1px solid ${border};border-radius:12px;padding:14px 16px">
+          <div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${camp}</div>
+          <div style="font-size:28px;font-weight:800;color:${color};line-height:1">${pct}%</div>
+          <div style="margin-top:8px;display:flex;gap:10px;font-size:11px;color:#64748B">
+            <span>✅ ${d.onTime}</span>
+            <span>⏰ ${d.late}</span>
+            <span>❌ ${d.absent}</span>
+            <span style="color:#94A3B8">/ ${d.total}</span>
+          </div>
+          <div style="margin-top:8px;height:4px;background:#E2E8F0;border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${color};border-radius:2px;transition:width .3s"></div>
+          </div>
         </div>`;
       }).join('')}
     </div>
-    <div class="tbl-wrap">
-      <div style="overflow-x:auto"><table style="min-width:620px">
-        <thead><tr>
-          <th>Supervisor</th><th>Campaña</th><th>Faltas periodo</th>
-          <th>👤 Marcó el sup</th><th>🤖 Marcó el sistema</th><th>Score atención</th>
-        </tr></thead>
-        <tbody id="atencionBodyMain">
-          ${_a_filtrarSups(_a_SUPS_REAL.length>0?_a_SUPS_REAL:_a_SUP_ATENCION).map(s=>{
-            const sc=s.atencionScore;
-            const color=sc>=70?'#16A34A':sc>=40?'#D97706':'#7E22CE';
-            return`<tr onclick="_a_drillToSup('${s.id}')">
-              <td><div class="agent-row-name">${s.name}</div><div class="agent-row-id">${s.id}</div></td>
-              <td><span class="pill pill-gray">${s.camp}</span></td>
-              <td style="font-family:'DM Mono',monospace">${s.faltasTotal||'—'}</td>
-              <td style="font-family:'DM Mono',monospace;color:#16A34A;font-weight:700">${s.faltasPorSup||0}</td>
-              <td style="font-family:'DM Mono',monospace;color:#7E22CE;font-weight:700">${s.faltasPorSistema||0}</td>
-              <td>
-                <div style="display:flex;align-items:center;gap:8px">
-                  <span style="font-size:13px;font-weight:800;color:${color};font-family:'DM Mono',monospace">${sc}%</span>
-                  <div style="width:80px">
-                    <div class="atencion-bar"><div class="atencion-bar-f" style="width:${sc}%;background:${color}"></div></div>
-                    <div style="font-size:10px;color:#94A3B8;margin-top:2px">${sc>=70?'Atento':sc>=40?'Regular':'Poco atento'}</div>
-                  </div>
-                </div>
-              </td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table></div>
+  </div>
+
+  <!-- A: Ranking de supervisores (mejores y peores) -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <div class="card-title" style="margin-bottom:2px">🏆 Ranking de supervisores · hoy</div>
+        <div style="font-size:11px;color:#94A3B8">Ordenado por puntualidad del equipo</div>
+      </div>
+    </div>
+    ${(()=>{
+      const ranked = [..._a_SUPS_REAL].map(s=>{
+        const pct = s.agents ? Math.round((s.onTime/s.agents)*100) : 0;
+        return {...s, pct};
+      }).sort((a,b)=>b.pct-a.pct);
+      const top3 = ranked.slice(0,3);
+      const bot3 = ranked.length > 3 ? ranked.slice(-3).reverse() : [];
+      const renderSup = (s, idx, isTop) => {
+        const color = s.pct>=90?'#16A34A':s.pct>=70?'#D97706':'#DC2626';
+        const medal = isTop ? ['🥇','🥈','🥉'][idx] : ['⚠️','⚠️','⚠️'][idx];
+        return `<div onclick="_a_drillToSup('${s.id}')" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:#F8FAFC;cursor:pointer;transition:background .15s" onmouseover="this.style.background='#F1F5F9'" onmouseout="this.style.background='#F8FAFC'">
+          <div style="font-size:20px;width:28px;text-align:center">${medal}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
+            <div style="font-size:11px;color:#94A3B8;margin-top:1px">${s.camp} · ${s.agents} agentes</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:18px;font-weight:800;color:${color};font-family:'DM Mono',monospace">${s.pct}%</div>
+            <div style="font-size:10px;color:#94A3B8">${s.onTime} on time · ${s.late} tarde · ${s.absent} falta</div>
+          </div>
+        </div>`;
+      };
+      return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#16A34A;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Top 3 mejores</div>
+          <div style="display:flex;flex-direction:column;gap:6px">${top3.map((s,i)=>renderSup(s,i,true)).join('')}</div>
+        </div>
+        ${bot3.length?`<div>
+          <div style="font-size:11px;font-weight:700;color:#DC2626;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Necesitan atención</div>
+          <div style="display:flex;flex-direction:column;gap:6px">${bot3.map((s,i)=>renderSup(s,i,false)).join('')}</div>
+        </div>`:''}
+      </div>`;
+    })()}
+  </div>
+
+  <!-- D: Feed de actividad en vivo -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div>
+        <div class="card-title" style="margin-bottom:2px">⚡ Actividad en vivo · últimas marcas</div>
+        <div style="font-size:11px;color:#94A3B8">Se actualiza cada 30 segundos</div>
+      </div>
+      <div id="live-feed-dot" style="width:8px;height:8px;border-radius:50%;background:#16A34A;animation:pulse 2s infinite"></div>
+    </div>
+    <div id="live-feed-list" style="display:flex;flex-direction:column;gap:6px">
+      ${(()=>{
+        const punches = (_a_PUNCHES_HOY||[]).slice(0,15).map(p=>{
+          const emp = _a_TEAM_ALL?.find(e=>e.id===p.employee_id) || {full_name:p.employee_id, campaign_id:'—'};
+          const hora = (p.punch_time||'').slice(0,5);
+          const tipo = p.punch_type === 'entrada';
+          const color = tipo ? '#16A34A' : '#64748B';
+          const icon = tipo ? '🟢' : '🔴';
+          return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:#F8FAFC;font-size:12px">
+            <span style="font-size:14px">${icon}</span>
+            <span style="font-weight:600;color:#0F172A;flex:1">${emp.full_name}</span>
+            <span style="color:#64748B">${emp.campaign_id||'—'}</span>
+            <span style="font-family:'DM Mono',monospace;font-weight:700;color:${color}">${hora}</span>
+            <span style="font-size:10px;color:#94A3B8;text-transform:uppercase">${tipo?'entrada':'salida'}</span>
+          </div>`;
+        }).join('');
+        return punches || '<div style="text-align:center;padding:24px;color:#94A3B8;font-size:13px">Sin actividad registrada hoy todavía</div>';
+      })()}
     </div>
   </div>
 
@@ -5759,7 +5857,10 @@ window['_init_asistencia']=function(){
   _a_cargando=true; _a_render();
   _a_cargarDatos().then(ok=>{
     _a_cargando=false; _a_render();
-    if(ok){ _a_checkAutoRetardos(); _a_checkAutoFaltas(); }
+    if(ok){
+      _a_checkAutoRetardos(); _a_checkAutoFaltas();
+      if(['people','head_people','ceo','manager'].includes(currentRole)) _a_startLiveFeed();
+    }
   });
 };
 window['_rerender_asistencia']=function(){ if(typeof _a_render==='function')_a_render(); };
