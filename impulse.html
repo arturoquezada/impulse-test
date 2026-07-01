@@ -2260,7 +2260,7 @@ async function _a_cargarDatos() {
       // Todos los empleados activos
       const { data: allEmps } = await _a_sb
         .from('employees')
-        .select('id, full_name, campaign_id, supervisor_id, system_role, shift_start, shift_end')
+        .select('id, full_name, campaign_id, supervisor_id, system_role, shift_start, shift_end, position_title')
         .eq('status','active');
 
       const allIds = (allEmps||[]).map(e=>e.id);
@@ -2307,8 +2307,12 @@ async function _a_cargarDatos() {
         }
       });
 
-      // Supervisores con asistencia de hoy
-      const sups = (allEmps||[]).filter(e => e.system_role === 'supervisor');
+      // Supervisores con asistencia de hoy — solo Operations Supervisor y Trainer
+      const PUESTOS_SUP = ['Operations Supervisor', 'Trainer'];
+      const sups = (allEmps||[]).filter(e =>
+        e.system_role === 'supervisor' &&
+        PUESTOS_SUP.includes(e.position_title)
+      );
       _a_SUPS_REAL = sups.map(e => {
         const s = todayAll.find(x => x.employee_id === e.id);
         const lateMin = s ? (s.minutes_late||0) : 0;
