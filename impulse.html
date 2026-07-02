@@ -4764,6 +4764,21 @@ async function _a_marcarSalida(){
   if (_a_punchBusy) return;
   const p = _a_getPunch();
   if(!p.entrada || p.salida) return;
+
+  // Validar que hayan pasado al menos 2 horas desde la entrada
+  const [h, m] = p.entrada.split(':').map(Number);
+  const entradaMin = h * 60 + m;
+  const ahoraMin = NOW.getHours() * 60 + NOW.getMinutes();
+  const diff = ahoraMin - entradaMin;
+  if (diff < 120) {
+    const falta = 120 - diff;
+    const msg = `⚠️ Solo llevas ${diff} minuto${diff!==1?'s':''} desde tu entrada (${p.entrada}).\n\n` +
+      `Faltan ${falta} minuto${falta!==1?'s':''} para poder marcar salida.\n\n` +
+      `Si necesitas salir antes por una emergencia, pide a tu supervisor que registre la corrección.`;
+    alert(msg);
+    return;
+  }
+
   _a_punchBusy = true;
   const horaLocal = NOW.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false});
   const ok = await _a_punchSB('salida');
