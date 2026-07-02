@@ -2411,14 +2411,25 @@ async function _a_cargarDatos() {
 // ── PUNCH REAL ───────────────────────────────────────────────
 async function _a_punchSB(tipo) {
   const ro = ROLES[currentRole];
-  const hoy = ymd(NOW);
-  const ahora = NOW.toTimeString().slice(0,8);
+
+  // Primero obtenemos la hora real del servidor (no del dispositivo del agente,
+  // que puede estar manipulado). Usamos una función RPC o un select de now().
+  let serverTime;
+  try {
+    const { data } = await _a_sb.rpc('get_server_time');
+    serverTime = data ? new Date(data) : new Date();
+  } catch {
+    serverTime = new Date(); // fallback si falla el RPC
+  }
+
+  const hoy = ymd(serverTime);
+  const punch_time = serverTime.toTimeString().slice(0,8);
 
   const { error } = await _a_sb.from('attendance_punches').insert({
     employee_id: ro.id,
     punch_date:  hoy,
-    punch_time:  ahora,
-    punched_at:  NOW.toISOString(),
+    punch_time,
+    punched_at:  serverTime.toISOString(),
     punch_type:  tipo,
     campaign_id: ro.camp,
     created_by:  ro.id,
@@ -4753,11 +4764,11 @@ async function _a_marcarEntrada(){
   const p = _a_getPunch();
   if(p.entrada) return;
   _a_punchBusy = true;
-  const horaLocal = NOW.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false});
   const ok = await _a_punchSB('entrada');
+  if (!ok) { _a_punchBusy = false; alert('No se pudo registrar tu entrada. Intenta de nuevo o avisa a tu supervisor si sigue fallando.'); return; }
+  // Hora local solo para mostrar en pantalla (la real ya quedó en Supabase)
   _a_punchBusy = false;
-  if (!ok) { alert('No se pudo registrar tu entrada. Intenta de nuevo o avisa a tu supervisor si sigue fallando.'); return; }
-  p.entrada = horaLocal;
+  p.entrada = new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false});
   _a_render();
 }
 async function _a_marcarSalida(){
@@ -4765,26 +4776,28 @@ async function _a_marcarSalida(){
   const p = _a_getPunch();
   if(!p.entrada || p.salida) return;
 
-  // Validar que hayan pasado al menos 2 horas desde la entrada
+  // Obtener hora del servidor para validar las 2 horas mínimas
+  let serverNow;
+  try {
+    const { data } = await _a_sb.rpc('get_server_time');
+    serverNow = data ? new Date(data) : new Date();
+  } catch { serverNow = new Date(); }
+
+  const ahoraMin = serverNow.getHours() * 60 + serverNow.getMinutes();
   const [h, m] = p.entrada.split(':').map(Number);
   const entradaMin = h * 60 + m;
-  const ahoraMin = NOW.getHours() * 60 + NOW.getMinutes();
   const diff = ahoraMin - entradaMin;
   if (diff < 120) {
     const falta = 120 - diff;
-    const msg = `⚠️ Solo llevas ${diff} minuto${diff!==1?'s':''} desde tu entrada (${p.entrada}).\n\n` +
-      `Faltan ${falta} minuto${falta!==1?'s':''} para poder marcar salida.\n\n` +
-      `Si necesitas salir antes por una emergencia, pide a tu supervisor que registre la corrección.`;
-    alert(msg);
+    alert(`⚠️ Solo llevas ${diff} minuto${diff!==1?'s':''} desde tu entrada (${p.entrada}).\n\nFaltan ${falta} minuto${falta!==1?'s':''} para poder marcar salida.\n\nSi necesitas salir antes por una emergencia, pide a tu supervisor que registre la corrección.`);
     return;
   }
 
   _a_punchBusy = true;
-  const horaLocal = NOW.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false});
   const ok = await _a_punchSB('salida');
   _a_punchBusy = false;
   if (!ok) { alert('No se pudo registrar tu salida. Intenta de nuevo o avisa a tu supervisor si sigue fallando.'); return; }
-  p.salida = horaLocal;
+  p.salida = serverNow.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false});
   _a_render();
 }
 async function _a_drillToAgent(id){
