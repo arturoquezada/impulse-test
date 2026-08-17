@@ -443,14 +443,10 @@ function dotColor(s){ const m={"To Do":"#94a3b8","In Progress":"#3b82f6","Blocke
 
 async function fetchUsers(){
   const { data, error } = await supabase
-    .from("employees")
-    .select("id,full_name,email,position_title,campaign_id,status")
-    .ilike("campaign_id", "Admin")
-    .ilike("status", "active")
-    .order("full_name", { ascending:true });
+    .rpc("pm_get_assignable_users");
 
   if(error){
-    console.error("Error loading Admin employees:", error);
+    console.error("Error loading assignable users:", error);
     return [];
   }
 
@@ -458,8 +454,7 @@ async function fetchUsers(){
     id: u.id,
     email: String(u.email || "").trim().toLowerCase(),
     full_name: u.full_name || u.email || "?",
-    area: u.position_title || "",
-    campaign_id: u.campaign_id || ""
+    area: u.position_title || ""
   }));
 }
 
